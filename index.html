@@ -9,10 +9,10 @@
     <script type="module" src="./scoped-js.js"></script>
   </head>
   <body>
-    <script type="scoped">
+    <script type="context">
       export const time = S.data(0);
       (function tick(t) {
-        time(Math.floor(t * 0.001));
+        time(t);
         requestAnimationFrame(tick);
       })(0);
     </script>

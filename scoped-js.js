@@ -18,9 +18,9 @@ function getClosestContext(node) {
   return parent ? parent.__context : null;
 }
 
-function isScopedScript(element) {
+function isContextScript(element) {
   return (
-    element.tagName === "SCRIPT" && element.getAttribute("type") === "scoped"
+    element.tagName === "SCRIPT" && element.getAttribute("type") === "context"
   );
 }
 
@@ -52,7 +52,7 @@ async function start() {
   );
   let currentNode = treeWalker.currentNode;
   while (currentNode) {
-    if (isScopedScript(currentNode)) {
+    if (isContextScript(currentNode)) {
       await initContext(currentNode);
     }
     const context = getClosestContext(currentNode);
@@ -72,7 +72,7 @@ async function start() {
         if (mutation.type === "childList") {
           for (let node of mutation.removedNodes) {
             if (node.nodeType === Node.ELEMENT_NODE) {
-              if (isScopedScript(node)) {
+              if (isContextScript(node)) {
                 if (node.parentElement.__context) {
                   delete node.parentElement.__context;
                 }
@@ -87,7 +87,7 @@ async function start() {
           }
           for (let node of mutation.addedNodes) {
             if (node.nodeType === Node.ELEMENT_NODE) {
-              if (isScopedScript(node)) {
+              if (isContextScript(node)) {
                 await initContext(node);
               }
               const context = getClosestContext(node);
@@ -103,7 +103,7 @@ async function start() {
           }
         }
         if (mutation.type === "attributes") {
-          if (isScopedScript(mutation.target)) {
+          if (isContextScript(mutation.target)) {
             if (mutation.target.parentElement.__context) {
               delete mutation.target.parentElement.__context;
             }
