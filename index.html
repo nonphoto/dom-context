@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script type="module" src="./scoped-css.js"></script>
+    <script type="module" src="./scoped-js.js"></script>
+  </head>
+  <body>
+    <script type="scoped">
+      export const time = S.data(0);
+      (function tick(t) {
+        time(Math.floor(t * 0.001));
+        requestAnimationFrame(tick);
+      })(0);
+    </script>
+    <style>
+      h1 {
+        color: red;
+      }
+    </style>
+    <main>
+      <style scoped>
+        h1 {
+          color: blue;
+        }
+      </style>
+      <h1>Blue: <span bind-text="time">0</span></h1>
+    </main>
+    <h1>Red</h1>
+  </body>
+</html>
