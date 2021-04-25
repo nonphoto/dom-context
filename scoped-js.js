@@ -35,11 +35,15 @@ function initDirective(element, attributeName, contextValue) {
 }
 
 async function initContext(script) {
+  const parentContext = getClosestContext(script.parentNode);
+  const transformedSource = parentContext
+    ? `import * as context from "${parentContext.src}"; export * from "${parentContext.src}"; ${script.textContent}`
+    : script.textContent;
   const url = URL.createObjectURL(
-    new Blob([script.textContent], { type: "application/javascript" })
+    new Blob([transformedSource], { type: "application/javascript" })
   );
   const context = await import(url);
-  script.parentElement.__context = context;
+  script.parentElement.__context = { values: context, src: url };
 }
 
 async function start() {
@@ -60,7 +64,7 @@ async function start() {
       for (let key of Object.keys(directives)) {
         const value = currentNode.getAttribute(key);
         if (value) {
-          initDirective(currentNode, key, context[value]);
+          initDirective(currentNode, key, context.values[value]);
         }
       }
     }
@@ -95,7 +99,7 @@ async function start() {
                 for (let key of Object.keys(directives)) {
                   const value = node.getAttribute(key);
                   if (value) {
-                    initDirective(node, key, context[value]);
+                    initDirective(node, key, context.values[value]);
                   }
                 }
               }
@@ -122,7 +126,7 @@ async function start() {
             initDirective(
               mutation.target,
               mutation.attributeName,
-              context[newValue]
+              context.values[newValue]
             );
           }
         }

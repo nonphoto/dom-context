@@ -22,12 +22,15 @@
       }
     </style>
     <main>
+      <script type="context">
+        export const seconds = S(() => Math.floor(context.time() * 0.001));
+      </script>
       <style scoped>
         h1 {
           color: blue;
         }
       </style>
-      <h1>Blue: <span bind-text="time">0</span></h1>
+      <h1>Blue: <span bind-text="seconds">0</span></h1>
     </main>
     <h1>Red</h1>
   </body>
