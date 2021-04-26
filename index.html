@@ -10,11 +10,14 @@
   </head>
   <body>
     <script type="context">
-      export const time = stream.data(0);
-      (function tick(_t) {
-        time(_t);
-        requestAnimationFrame(tick);
-      })(0);
+      export default () => {
+        const time = stream.data(0);
+        (function tick(_t) {
+          time(_t);
+          requestAnimationFrame(tick);
+        })(0);
+        return { time }
+      }
     </script>
     <style>
       h1 {
@@ -23,7 +26,9 @@
     </style>
     <main>
       <script type="context">
-        export const seconds = stream.context(() => Math.floor(context.time() * 0.001));
+        export default ({time}) => ({
+          seconds: stream(() => Math.floor(time() * 0.001))
+        })
       </script>
       <style scoped>
         h1 {

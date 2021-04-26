@@ -105,21 +105,24 @@ function initProvider(element, parentProviderState) {
     const source = scripts.map((script) => script.textContent).join("\n");
     element.__provider = Promise.resolve(parentProviderState).then(
       (resolvedParentProviderState) => {
-        const transformedSource = resolvedParentProviderState
-          ? `import * as context from "${resolvedParentProviderState.src}"; export * from "${resolvedParentProviderState.src}"; export const disposers = []; stream.context = (...args) => stream.root((disposer) => { disposers.push(disposer); return stream(...args); }); ${source}`
-          : source;
+        const parentContext = resolvedParentProviderState
+          ? resolvedParentProviderState.context
+          : {};
         const url = URL.createObjectURL(
-          new Blob([transformedSource], { type: "application/javascript" })
+          new Blob([source], { type: "application/javascript" })
         );
-        return import(url).then(({ disposers, ...context }) => {
-          console.log(context);
-          return {
-            context,
-            src: url,
-            disposer: () => {
-              disposers.forEach((dispose) => dispose());
-            },
-          };
+        return import(url).then((module) => {
+          return S.root((disposer) => {
+            const context = {
+              ...parentContext,
+              ...module.default(parentContext),
+            };
+            return {
+              context,
+              src: url,
+              disposer,
+            };
+          });
         });
       }
     );
