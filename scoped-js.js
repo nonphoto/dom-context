@@ -10,12 +10,15 @@ const directives = {
   "bind-text": textDirective,
 };
 
-function getClosestContext(node) {
+function getClosestProvider(node) {
   let parent = node.parentElement;
-  while (parent && !parent.__context) {
+  while (parent) {
+    if (isInitializedProvider(parent)) {
+      return parent;
+    }
     parent = parent.parentElement;
   }
-  return parent ? parent.__context : null;
+  return null;
 }
 
 function isContextScript(element) {
@@ -24,110 +27,205 @@ function isContextScript(element) {
   );
 }
 
-function initDirective(element, attributeName, contextValue) {
-  S.root((dispose) => {
-    directives[attributeName](element, contextValue);
-    if (!element.__disposers) {
-      element.__disposers = {};
+function isUninitializedProvider(node) {
+  return Array.from(node.children).some(isContextScript) && !node.__provider;
+}
+
+function isInitializedProvider(node) {
+  return !!node.__provider;
+}
+
+function isUninitializedConsumer(node) {
+  return (
+    Object.keys(directives).some((key) => node.getAttribute(key)) &&
+    !node.__consumer
+  );
+}
+
+function isInitializedConsumer(node) {
+  return !!node.__consumer;
+}
+
+function isInitializedDirective(node, attributeName) {
+  return node.__consumer && node.__consumer[attributeName];
+}
+
+function initDirective(element, attributeName, providerState) {
+  if (typeof providerState === "undefined") {
+    const provider = getClosestProvider(element);
+    providerState = provider ? provider.__provider : null;
+  }
+  if (providerState) {
+    providerState.then((resolved) => {
+      S.root((dispose) => {
+        const attributeValue = element.getAttribute(attributeName);
+        if (resolved.context[attributeValue]) {
+          directives[attributeName](element, resolved.context[attributeValue]);
+          if (!element.__consumer) {
+            element.__consumer = {};
+          }
+          element.__consumer[attributeName] = dispose;
+        }
+      });
+    });
+  }
+}
+
+function disposeDirective(element, attributeName) {
+  element.__consumer[attributeName]();
+}
+
+function initConsumer(element, providerState) {
+  if (typeof providerState === "undefined") {
+    const provider = getClosestProvider(element);
+    providerState = provider ? provider.__provider : null;
+  }
+  for (const key in directives) {
+    const value = element.getAttribute(key);
+    if (value) {
+      initDirective(element, key, providerState);
     }
-    element.__disposers[attributeName] = dispose;
+  }
+}
+
+function disposeConsumer(element) {
+  for (const key in element.__consumer) {
+    disposeDirective(element, key);
+  }
+  delete element.__consumer;
+}
+
+function initProvider(element, parentProviderState) {
+  if (typeof parentProviderState === "undefined") {
+    const provider = getClosestProvider(element);
+    parentProviderState = provider ? provider.__provider : null;
+  }
+  const scripts = Array.from(element.children).filter(isContextScript);
+  if (isUninitializedProvider(element)) {
+    const source = scripts.map((script) => script.textContent).join("\n");
+    element.__provider = Promise.resolve(parentProviderState).then(
+      (resolvedParentProviderState) => {
+        const transformedSource = resolvedParentProviderState
+          ? `export * from "${resolvedParentProviderState.src}"; ${source}`
+          : source;
+        const url = URL.createObjectURL(
+          new Blob([transformedSource], { type: "application/javascript" })
+        );
+        return import(url).then((context) => {
+          return S.root((disposer) => {
+            const parentContext = resolvedParentProviderState
+              ? resolvedParentProviderState.context
+              : {};
+            const resolvedContext = Object.fromEntries(
+              Object.entries(context).map(([key, value]) => [
+                key,
+                value(parentContext),
+              ])
+            );
+            return {
+              context: resolvedContext,
+              src: url,
+              disposer,
+            };
+          });
+        });
+      }
+    );
+  }
+  walk(element, (current) => {
+    if (scripts.includes(current)) {
+      return false;
+    } else if (isUninitializedProvider(current)) {
+      initProvider(current, element.__provider);
+      return false;
+    } else if (isUninitializedConsumer(current)) {
+      initConsumer(current, element.__provider);
+    }
   });
 }
 
-async function initContext(script) {
-  const parentContext = getClosestContext(script.parentNode);
-  const transformedSource = parentContext
-    ? `import * as context from "${parentContext.src}"; export * from "${parentContext.src}"; ${script.textContent}`
-    : script.textContent;
-  const url = URL.createObjectURL(
-    new Blob([transformedSource], { type: "application/javascript" })
-  );
-  const context = await import(url);
-  script.parentElement.__context = { values: context, src: url };
+function disposeProvider(element) {
+  element.__provider.then((context) => {
+    context.dispose();
+  });
+  delete element.__provider;
+  walk(element, (current) => {
+    if (isInitializedProvider(current)) {
+      disposeProvider(current);
+      return false;
+    } else if (isInitializedConsumer(current)) {
+      disposeConsumer(current);
+    }
+  });
+  const parentProvider = getClosestProvider(element);
+  initProvider(parentProvider);
 }
 
-async function start() {
-  window.S = S;
-  const treeWalker = document.createTreeWalker(
-    document.body,
-    NodeFilter.SHOW_ELEMENT,
-    { acceptNode: () => NodeFilter.FILTER_ACCEPT },
-    false
-  );
-  let currentNode = treeWalker.currentNode;
-  while (currentNode) {
-    if (isContextScript(currentNode)) {
-      await initContext(currentNode);
-    }
-    const context = getClosestContext(currentNode);
-    if (context) {
-      for (let key of Object.keys(directives)) {
-        const value = currentNode.getAttribute(key);
-        if (value) {
-          initDirective(currentNode, key, context.values[value]);
-        }
-      }
-    }
-    currentNode = treeWalker.nextNode();
+function walk(element, callback, context) {
+  let current = element.firstElementChild;
+  if (callback(element, context) === false) {
+    return;
   }
-  const observer = new MutationObserver(async (mutations) => {
-    for (let mutation of mutations) {
+  while (current) {
+    walk(current, callback, context || element.__provider);
+    current = current.nextElementSibling;
+  }
+}
+
+function start() {
+  window.S = S;
+  initProvider(document.body, null);
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
       if (mutation.target.nodeType === Node.ELEMENT_NODE) {
         if (mutation.type === "childList") {
-          for (let node of mutation.removedNodes) {
+          for (const node of mutation.removedNodes) {
             if (node.nodeType === Node.ELEMENT_NODE) {
-              if (isContextScript(node)) {
-                if (node.parentElement.__context) {
-                  delete node.parentElement.__context;
-                }
-              }
-              if (node.__disposers) {
-                for (let dispose of node.__disposers) {
-                  dispose();
-                }
-                delete node.__disposers;
+              if (
+                isContextScript(node) &&
+                isInitializedProvider(node.parentElement)
+              ) {
+                disposeProvider(node.parentElement);
+              } else if (isInitializedProvider(node)) {
+                disposeProvider(node);
+              } else if (isInitializedConsumer(node)) {
+                disposeConsumer(node);
               }
             }
           }
-          for (let node of mutation.addedNodes) {
+          for (const node of mutation.addedNodes) {
             if (node.nodeType === Node.ELEMENT_NODE) {
-              if (isContextScript(node)) {
-                await initContext(node);
-              }
-              const context = getClosestContext(node);
-              if (context) {
-                for (let key of Object.keys(directives)) {
-                  const value = node.getAttribute(key);
-                  if (value) {
-                    initDirective(node, key, context.values[value]);
-                  }
-                }
+              if (
+                isContextScript(node) &&
+                isUninitializedProvider(node.parent)
+              ) {
+                initProvider(node.parent);
+              } else if (isUninitializedProvider(node)) {
+                initProvider(node);
+              } else if (isUninitializedConsumer(node)) {
+                initConsumer(node);
               }
             }
           }
         }
         if (mutation.type === "attributes") {
           if (isContextScript(mutation.target)) {
-            if (mutation.target.parentElement.__context) {
-              delete mutation.target.parentElement.__context;
+            if (isInitializedProvider(mutation.target.parentElement)) {
+              disposeProvider(mutation.target.parentElement);
             }
-            // TODO: Dispose directive elements
-          }
-          if (
-            mutation.target.__disposers &&
-            mutation.target.__disposers[mutation.attributeName]
-          ) {
-            mutation.target.__disposers[mutation.attributeName]();
-            delete mutation.target.__disposers[mutation.attributeName];
-          }
-          const newValue = mutation.target.getAttribute(mutation.attributeName);
-          const context = getClosestContext(mutation.target);
-          if (newValue && context && directives[mutation.attributeName]) {
-            initDirective(
-              mutation.target,
-              mutation.attributeName,
-              context.values[newValue]
+            initProvider();
+          } else {
+            if (
+              isInitializedDirective(mutation.target, mutation.attributeName)
+            ) {
+              disposeDirective(mutation.target, mutation.attributeName);
+            }
+            const newValue = mutation.target.getAttribute(
+              mutation.attributeName
             );
+            if (newValue && directives[mutation.attributeName]) {
+              initDirective(mutation.target, mutation.attributeName);
+            }
           }
         }
       }
