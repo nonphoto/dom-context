@@ -140,8 +140,8 @@ function initProvider(element, parentProviderState) {
 }
 
 function disposeProvider(element) {
-  element.__provider.then((context) => {
-    context.dispose();
+  element.__provider.then((providerState) => {
+    providerState.disposer();
   });
   delete element.__provider;
   walk(element, (current) => {
@@ -153,7 +153,9 @@ function disposeProvider(element) {
     }
   });
   const parentProvider = getClosestProvider(element);
-  initProvider(parentProvider);
+  if (parentProvider) {
+    initProvider(parentProvider);
+  }
 }
 
 function walk(element, callback, context) {
@@ -204,11 +206,20 @@ function start() {
           }
         }
         if (mutation.type === "attributes") {
-          if (isContextScript(mutation.target)) {
-            if (isInitializedProvider(mutation.target.parentElement)) {
-              disposeProvider(mutation.target.parentElement);
-            }
-            initProvider();
+          if (
+            mutation.target.tagName === "SCRIPT" &&
+            mutation.attributeName === "type" &&
+            mutation.oldValue === "context" &&
+            isInitializedProvider(mutation.target.parentElement)
+          ) {
+            disposeProvider(mutation.target.parentElement);
+          } else if (
+            mutation.target.tagName === "SCRIPT" &&
+            mutation.attributeName === "type" &&
+            mutation.target.getAttribute("type") === "context" &&
+            isUninitializedProvider(mutation.target.parentElement)
+          ) {
+            initProvider(mutation.target.parentElement);
           } else {
             if (
               isInitializedDirective(mutation.target, mutation.attributeName)
