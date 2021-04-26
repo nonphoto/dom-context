@@ -26,16 +26,34 @@
     </style>
     <main>
       <script type="context">
-        export default ({time}) => ({
-          seconds: stream(() => Math.floor(time() * 0.001))
-        })
+        export default ({time}) => {
+          const seconds = stream(() => Math.floor(time() * 0.001))
+          const hidden = stream(() => seconds() % 3 == 0)
+          const wiggle = stream(() => `translateY(${Math.sin(time() * 0.001) * 10}px)`)
+          return {
+            seconds,
+            hidden,
+            wiggle
+          }
+        }
       </script>
       <style scoped>
         h1 {
           color: blue;
         }
+        span {
+          display: inline-block;
+        }
       </style>
-      <h1>Blue: <span bind-text="seconds">0</span></h1>
+      <h1>
+        Blue:
+        <span
+          bind-text="seconds"
+          bind-attr-hidden="hidden"
+          bind-style-transform="wiggle"
+          >0</span
+        >
+      </h1>
     </main>
     <h1>Red</h1>
   </body>

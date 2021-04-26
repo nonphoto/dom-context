@@ -1,14 +1,57 @@
 import S from "https://cdn.skypack.dev/s-js";
 
-function textDirective(element, valueStream) {
-  S(() => {
-    element.textContent = valueStream();
-  });
+function textDirective(element, value) {
+  if (typeof value === "function") {
+    S(() => {
+      element.textContent = value();
+    });
+  } else {
+    element.textContent = value;
+  }
 }
 
-const directives = {
-  "bind-text": textDirective,
-};
+function styleDirective(element, value, name) {
+  if (typeof value === "function") {
+    S(() => {
+      styleDirective(element, value(), name);
+    });
+  } else {
+    element.style[name] = value;
+  }
+}
+
+function attributeDirective(element, value, name) {
+  if (typeof value === "function") {
+    S(() => {
+      attributeDirective(element, value(), name);
+    });
+  } else {
+    if (typeof value === "boolean") {
+      if (value) {
+        element.setAttribute(name, "");
+      } else {
+        element.removeAttribute(name);
+      }
+    } else {
+      element.setAttribute(name, value);
+    }
+  }
+}
+
+const directives = [
+  {
+    pattern: /bind-text/,
+    fn: textDirective,
+  },
+  {
+    pattern: /bind-attr-(\S+)/,
+    fn: attributeDirective,
+  },
+  {
+    pattern: /bind-style-(\S+)/,
+    fn: styleDirective,
+  },
+];
 
 function getClosestProvider(node) {
   let parent = node.parentElement;
@@ -37,8 +80,9 @@ function isInitializedProvider(node) {
 
 function isUninitializedConsumer(node) {
   return (
-    Object.keys(directives).some((key) => node.getAttribute(key)) &&
-    !node.__consumer
+    directives.some(({ pattern }) =>
+      Array.from(node.attributes).some(({ name }) => pattern.test(name))
+    ) && !node.__consumer
   );
 }
 
@@ -55,12 +99,16 @@ function initDirective(element, attributeName, providerState) {
     const provider = getClosestProvider(element);
     providerState = provider ? provider.__provider : null;
   }
-  if (providerState) {
+  const attributeValue = element.getAttribute(attributeName);
+  const directive = directives.find(({ pattern }) =>
+    pattern.test(attributeName)
+  );
+  if (directive && providerState) {
     providerState.then((resolved) => {
       S.root((dispose) => {
-        const attributeValue = element.getAttribute(attributeName);
+        const [, ...matches] = directive.pattern.exec(attributeName);
         if (resolved.context[attributeValue]) {
-          directives[attributeName](element, resolved.context[attributeValue]);
+          directive.fn(element, resolved.context[attributeValue], ...matches);
           if (!element.__consumer) {
             element.__consumer = {};
           }
@@ -73,6 +121,7 @@ function initDirective(element, attributeName, providerState) {
 
 function disposeDirective(element, attributeName) {
   element.__consumer[attributeName]();
+  delete element.__consumer[attributeName];
 }
 
 function initConsumer(element, providerState) {
@@ -80,11 +129,8 @@ function initConsumer(element, providerState) {
     const provider = getClosestProvider(element);
     providerState = provider ? provider.__provider : null;
   }
-  for (const key in directives) {
-    const value = element.getAttribute(key);
-    if (value) {
-      initDirective(element, key, providerState);
-    }
+  for (const { name } of Array.from(element.attributes)) {
+    initDirective(element, name, providerState);
   }
 }
 
@@ -229,7 +275,7 @@ function start() {
             const newValue = mutation.target.getAttribute(
               mutation.attributeName
             );
-            if (newValue && directives[mutation.attributeName]) {
+            if (newValue) {
               initDirective(mutation.target, mutation.attributeName);
             }
           }
