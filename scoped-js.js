@@ -106,28 +106,20 @@ function initProvider(element, parentProviderState) {
     element.__provider = Promise.resolve(parentProviderState).then(
       (resolvedParentProviderState) => {
         const transformedSource = resolvedParentProviderState
-          ? `export * from "${resolvedParentProviderState.src}"; ${source}`
+          ? `import * as context from "${resolvedParentProviderState.src}"; export * from "${resolvedParentProviderState.src}"; export const disposers = []; stream.context = (...args) => stream.root((disposer) => { disposers.push(disposer); return stream(...args); }); ${source}`
           : source;
         const url = URL.createObjectURL(
           new Blob([transformedSource], { type: "application/javascript" })
         );
-        return import(url).then((context) => {
-          return S.root((disposer) => {
-            const parentContext = resolvedParentProviderState
-              ? resolvedParentProviderState.context
-              : {};
-            const resolvedContext = Object.fromEntries(
-              Object.entries(context).map(([key, value]) => [
-                key,
-                value(parentContext),
-              ])
-            );
-            return {
-              context: resolvedContext,
-              src: url,
-              disposer,
-            };
-          });
+        return import(url).then(({ disposers, ...context }) => {
+          console.log(context);
+          return {
+            context,
+            src: url,
+            disposer: () => {
+              disposers.forEach((dispose) => dispose());
+            },
+          };
         });
       }
     );
@@ -173,7 +165,7 @@ function walk(element, callback, context) {
 }
 
 function start() {
-  window.S = S;
+  window.stream = S;
   initProvider(document.body, null);
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
