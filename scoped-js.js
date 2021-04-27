@@ -139,20 +139,25 @@ function initDirective(element, attributeName, providerState) {
     const provider = getClosestProvider(element);
     providerState = provider ? provider.__provider : null;
   }
+  if (!element.__consumer) {
+    element.__consumer = {};
+  }
   const attributeValue = element.getAttribute(attributeName);
   const directive = directives.find(({ pattern }) =>
     pattern.test(attributeName)
   );
-  if (directive && providerState) {
+  if (directive && !element.__consumer[attributeName] && providerState) {
     providerState.then((resolved) => {
       S.root((dispose) => {
         const [, ...matches] = directive.pattern.exec(attributeName);
         if (resolved.context[attributeValue]) {
           directive.fn(element, resolved.context[attributeValue], ...matches);
-          if (!element.__consumer) {
-            element.__consumer = {};
-          }
+
           element.__consumer[attributeName] = dispose;
+        } else {
+          console.warn(
+            `value with key "${attributeValue}" not found in context`
+          );
         }
       });
     });
@@ -255,9 +260,14 @@ function walk(element, callback, context) {
   }
 }
 
+let observer = null;
+
 function start() {
   initProvider(document.body, null);
-  const observer = new MutationObserver((mutations) => {
+  if (observer) {
+    observer.disconnect();
+  }
+  observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.target.nodeType === Node.ELEMENT_NODE) {
         if (mutation.type === "childList") {
@@ -329,5 +339,9 @@ function start() {
     attributeOldValue: true,
   });
 }
+
+document.addEventListener("turbo:load", () => {
+  start();
+});
 
 start();
