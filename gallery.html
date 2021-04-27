@@ -43,27 +43,65 @@
         stream.cleanup(() => {
           window.removeEventListener("mousemove", handleMousemove);
         });
-        return { mouse };
+        const time = stream.data(0);
+        (function tick(_t) {
+          time(_t);
+          requestAnimationFrame(tick);
+        })(0);
+        return { mouse, time };
       };
     </script>
     <main>
       <script scoped type="module">
-        export default ({ mouse }) => {
+        export default ({ mouse, time }) => {
           const activeKey = stream.data(null);
           const mouseenter = (event) =>
             void activeKey(event.target.dataset.key);
           const mouseleave = () => void activeKey(undefined);
+          const items = stream.data([]);
+          const fitRect = (rect, target) => {
+            var sw = target[2] / rect[2];
+            var sh = target[3] / rect[3];
+            var scale = (sw + sh) / 2;
+
+            return [
+              target[0] + (target[2] - rect[2] * scale) / 2,
+              target[1] + (target[3] - rect[3] * scale) / 2,
+              rect[2] * scale,
+              rect[3] * scale,
+            ];
+          };
+          const rects = stream(() =>
+            Object.fromEntries(
+              items().map((item) => [
+                item.dataset.key,
+                fitRect([0, 0, 1, item.dataset.aspectRatio], [0, 0, 1, 1]),
+              ])
+            )
+          );
+          const containerScale = stream.on(
+            time,
+            ([w, h]) => {
+              const [, , wt, ht] = activeKey()
+                ? rects()[activeKey()]
+                : [0, 0, 1.5, 0];
+              return [w + (wt - w) * 0.2, h + (ht - h) * 0.2];
+            },
+            [1.5, 0]
+          );
           const transform = stream(
             () =>
-              `translate(${mouse()[0]}px, ${
-                mouse()[1]
-              }px) translate(-50%, -50%)`
+              `translate(${mouse()[0]}px, ${mouse()[1]}px)
+              translate(-50%, -50%)
+              scale(${containerScale()[0]}, ${containerScale()[1]})
+              `
           );
           return {
             mouseenter,
             mouseleave,
             activeKey,
             transform,
+            items,
           };
         };
       </script>
@@ -111,14 +149,20 @@
           height: 50vmin;
           pointer-events: none;
           z-index: -1;
+          background-color: lightgray;
+          transform: scale(0);
         }
       </style>
       <div bind-style-transform="transform">
         <script scoped type="module">
-          export default ({ activeKey }) => {
-            const opacity = stream(() => (element) =>
-              activeKey() === element.dataset.key ? 1 : 0
-            );
+          export default ({ activeKey, time }) => {
+            const opacity = (element) =>
+              stream.on(
+                time,
+                (o) =>
+                  o + ((activeKey() === element.dataset.key ? 1 : 0) - o) * 0.2,
+                0
+              );
             return { opacity };
           };
         </script>
@@ -129,34 +173,40 @@
             left: 0;
             width: 100%;
             height: 100%;
+            opacity: 0;
           }
         </style>
         <img
           bind-style-opacity="opacity"
+          bind-multiref="items"
           data-key="alpha"
           data-aspect-ratio="0.634"
           src="https://images.unsplash.com/photo-1509957660513-3cfee07defec?w=1000&q=80"
         />
         <img
           bind-style-opacity="opacity"
+          bind-multiref="items"
           data-key="bravo"
           data-aspect-ratio="1.145"
           src="https://images.unsplash.com/photo-1497377701144-65a4a020f4c9?w=1000&q=80"
         />
         <img
           bind-style-opacity="opacity"
+          bind-multiref="items"
           data-key="charlie"
           data-aspect-ratio="0.748"
           src="https://images.unsplash.com/photo-1531523499679-7416e782dd96?w=1000&q=80"
         />
         <img
           bind-style-opacity="opacity"
+          bind-multiref="items"
           data-key="delta"
           data-aspect-ratio="1.780"
           src="https://images.unsplash.com/photo-1535629097462-c777c5b466a1?w=1000&q=80"
         />
         <img
           bind-style-opacity="opacity"
+          bind-multiref="items"
           data-key="echo"
           data-aspect-ratio="0.5625"
           src="https://images.unsplash.com/photo-1506170206-a6920d212828?w=1000&q=80"

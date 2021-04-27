@@ -52,6 +52,20 @@ function onDirective(element, value, name) {
   });
 }
 
+function refDirective(element, value) {
+  value(element);
+  S.cleanup(() => {
+    value(null);
+  });
+}
+
+function multirefDirective(element, value) {
+  value([...(S.sample(value) || []), element]);
+  S.cleanup(() => {
+    value(S.sample(value).filter((item) => item !== element));
+  });
+}
+
 const directives = [
   {
     pattern: /bind-text/,
@@ -68,6 +82,14 @@ const directives = [
   {
     pattern: /bind-on-(\S+)/,
     fn: onDirective,
+  },
+  {
+    pattern: /bind-ref/,
+    fn: refDirective,
+  },
+  {
+    pattern: /bind-multiref/,
+    fn: multirefDirective,
   },
 ];
 
