@@ -5,26 +5,65 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
+    <script type="module" src="./scoped-css.js"></script>
     <script type="module" src="./scoped-js.js"></script>
   </head>
   <body>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+      main {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        overflow: hidden;
+      }
+      a {
+        position: relative;
+        font-size: 6rem;
+        letter-spacing: -0.06ch;
+        margin: 0;
+        cursor: pointer;
+        text-decoration: none;
+        color: inherit;
+      }
+    </style>
     <script scoped type="module">
       export default () => {
-        const mouse = S.data();
+        const mouse = stream.data([]);
+        const handleMousemove = (event) =>
+          mouse([event.clientX, event.clientY]);
+        window.addEventListener("mousemove", handleMousemove);
+        stream.cleanup(() => {
+          window.removeEventListener("mousemove", handleMousemove);
+        });
         return { mouse };
       };
     </script>
     <main>
       <script scoped type="module">
-        export default () => {
+        export default ({ mouse }) => {
           const activeKey = stream.data(null);
           const mouseenter = (event) =>
             void activeKey(event.target.dataset.key);
           const mouseleave = () => void activeKey(undefined);
-          stream(() => console.log(activeKey()));
+          const transform = stream(
+            () =>
+              `translate(${mouse()[0]}px, ${
+                mouse()[1]
+              }px) translate(-50%, -50%)`
+          );
           return {
             mouseenter,
             mouseleave,
+            activeKey,
+            transform,
           };
         };
       </script>
@@ -63,33 +102,61 @@
         data-key="echo"
         >Echo</a
       >
-      <div>
+      <style scoped>
+        div {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 50vmin;
+          height: 50vmin;
+          pointer-events: none;
+          z-index: -1;
+        }
+      </style>
+      <div bind-style-transform="transform">
+        <script scoped type="module">
+          export default ({ activeKey }) => {
+            const opacity = stream(() => (element) =>
+              activeKey() === element.dataset.key ? 1 : 0
+            );
+            return { opacity };
+          };
+        </script>
+        <style>
+          img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+          }
+        </style>
         <img
-          slot="item"
+          bind-style-opacity="opacity"
           data-key="alpha"
           data-aspect-ratio="0.634"
           src="https://images.unsplash.com/photo-1509957660513-3cfee07defec?w=1000&q=80"
         />
         <img
-          slot="item"
+          bind-style-opacity="opacity"
           data-key="bravo"
           data-aspect-ratio="1.145"
           src="https://images.unsplash.com/photo-1497377701144-65a4a020f4c9?w=1000&q=80"
         />
         <img
-          slot="item"
+          bind-style-opacity="opacity"
           data-key="charlie"
           data-aspect-ratio="0.748"
           src="https://images.unsplash.com/photo-1531523499679-7416e782dd96?w=1000&q=80"
         />
         <img
-          slot="item"
+          bind-style-opacity="opacity"
           data-key="delta"
           data-aspect-ratio="1.780"
           src="https://images.unsplash.com/photo-1535629097462-c777c5b466a1?w=1000&q=80"
         />
         <img
-          slot="item"
+          bind-style-opacity="opacity"
           data-key="echo"
           data-aspect-ratio="0.5625"
           src="https://images.unsplash.com/photo-1506170206-a6920d212828?w=1000&q=80"

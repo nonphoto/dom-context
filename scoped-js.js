@@ -1,11 +1,16 @@
 import S from "https://cdn.skypack.dev/s-js";
 
+S.create = (...args) => {
+  const s = S.data(...args);
+  return [(() => s(), (v) => s(v))];
+};
+
 window.stream = S;
 
 function textDirective(element, value) {
   if (typeof value === "function") {
     S(() => {
-      element.textContent = value();
+      element.textContent = value(element);
     });
   } else {
     element.textContent = value;
@@ -15,7 +20,7 @@ function textDirective(element, value) {
 function styleDirective(element, value, name) {
   if (typeof value === "function") {
     S(() => {
-      styleDirective(element, value(), name);
+      styleDirective(element, value(element), name);
     });
   } else {
     element.style[name] = value;
@@ -25,7 +30,7 @@ function styleDirective(element, value, name) {
 function attributeDirective(element, value, name) {
   if (typeof value === "function") {
     S(() => {
-      attributeDirective(element, value(), name);
+      attributeDirective(element, value(element), name);
     });
   } else {
     if (typeof value === "boolean") {
