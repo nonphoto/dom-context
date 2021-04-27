@@ -9,15 +9,15 @@
     <script type="module" src="./scoped-js.js"></script>
   </head>
   <body>
-    <script type="context">
+    <script scoped type="module">
       export default () => {
         const time = stream.data(0);
         (function tick(_t) {
           time(_t);
           requestAnimationFrame(tick);
         })(0);
-        return { time }
-      }
+        return { time };
+      };
     </script>
     <style>
       h1 {
@@ -25,17 +25,19 @@
       }
     </style>
     <main>
-      <script type="context">
-        export default ({time}) => {
-          const seconds = stream(() => Math.floor(time() * 0.001))
-          const hidden = stream(() => seconds() % 3 == 0)
-          const wiggle = stream(() => `translateY(${Math.sin(time() * 0.001) * 10}px)`)
+      <script scoped type="module">
+        export default ({ time }) => {
+          const seconds = stream(() => Math.floor(time() * 0.001));
+          const hidden = stream(() => seconds() % 3 == 0);
+          const wiggle = stream(
+            () => `translateY(${Math.sin(time() * 0.001) * 10}px)`
+          );
           return {
             seconds,
             hidden,
-            wiggle
-          }
-        }
+            wiggle,
+          };
+        };
       </script>
       <style scoped>
         h1 {

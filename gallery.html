@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script type="module" src="./scoped-js.js"></script>
+  </head>
+  <body>
+    <script scoped type="module">
+      export default () => {
+        const mouse = S.data();
+        return { mouse };
+      };
+    </script>
+    <main>
+      <script scoped type="module">
+        export default () => {
+          const activeKey = stream.data(null);
+          const mouseenter = (event) =>
+            void activeKey(event.target.dataset.key);
+          const mouseleave = () => void activeKey(undefined);
+          stream(() => console.log(activeKey()));
+          return {
+            mouseenter,
+            mouseleave,
+          };
+        };
+      </script>
+      <a
+        bind-on-mouseenter="mouseenter"
+        bind-on-mouseleave="mouseleave"
+        href="/"
+        data-key="alpha"
+        >Alpha</a
+      >
+      <a
+        bind-on-mouseenter="mouseenter"
+        bind-on-mouseleave="mouseleave"
+        href="/"
+        data-key="bravo"
+        >Bravo</a
+      >
+      <a
+        bind-on-mouseenter="mouseenter"
+        bind-on-mouseleave="mouseleave"
+        href="/"
+        data-key="charlie"
+        >Charlie</a
+      >
+      <a
+        bind-on-mouseenter="mouseenter"
+        bind-on-mouseleave="mouseleave"
+        href="/"
+        data-key="delta"
+        >Delta</a
+      >
+      <a
+        bind-on-mouseenter="mouseenter"
+        bind-on-mouseleave="mouseleave"
+        href="/"
+        data-key="echo"
+        >Echo</a
+      >
+      <div>
+        <img
+          slot="item"
+          data-key="alpha"
+          data-aspect-ratio="0.634"
+          src="https://images.unsplash.com/photo-1509957660513-3cfee07defec?w=1000&q=80"
+        />
+        <img
+          slot="item"
+          data-key="bravo"
+          data-aspect-ratio="1.145"
+          src="https://images.unsplash.com/photo-1497377701144-65a4a020f4c9?w=1000&q=80"
+        />
+        <img
+          slot="item"
+          data-key="charlie"
+          data-aspect-ratio="0.748"
+          src="https://images.unsplash.com/photo-1531523499679-7416e782dd96?w=1000&q=80"
+        />
+        <img
+          slot="item"
+          data-key="delta"
+          data-aspect-ratio="1.780"
+          src="https://images.unsplash.com/photo-1535629097462-c777c5b466a1?w=1000&q=80"
+        />
+        <img
+          slot="item"
+          data-key="echo"
+          data-aspect-ratio="0.5625"
+          src="https://images.unsplash.com/photo-1506170206-a6920d212828?w=1000&q=80"
+        />
+      </div>
+    </main>
+  </body>
+</html>

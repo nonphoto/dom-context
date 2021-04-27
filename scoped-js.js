@@ -1,5 +1,7 @@
 import S from "https://cdn.skypack.dev/s-js";
 
+window.stream = S;
+
 function textDirective(element, value) {
   if (typeof value === "function") {
     S(() => {
@@ -38,6 +40,13 @@ function attributeDirective(element, value, name) {
   }
 }
 
+function onDirective(element, value, name) {
+  element.addEventListener(name, value);
+  S.cleanup(() => {
+    element.removeEventListener(name, value);
+  });
+}
+
 const directives = [
   {
     pattern: /bind-text/,
@@ -50,6 +59,10 @@ const directives = [
   {
     pattern: /bind-style-(\S+)/,
     fn: styleDirective,
+  },
+  {
+    pattern: /bind-on-(\S+)/,
+    fn: onDirective,
   },
 ];
 
@@ -66,7 +79,7 @@ function getClosestProvider(node) {
 
 function isContextScript(element) {
   return (
-    element.tagName === "SCRIPT" && element.getAttribute("type") === "context"
+    element.tagName === "SCRIPT" && element.getAttribute("scoped") !== null
   );
 }
 
@@ -216,7 +229,6 @@ function walk(element, callback, context) {
 }
 
 function start() {
-  window.stream = S;
   initProvider(document.body, null);
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
@@ -254,15 +266,15 @@ function start() {
         if (mutation.type === "attributes") {
           if (
             mutation.target.tagName === "SCRIPT" &&
-            mutation.attributeName === "type" &&
-            mutation.oldValue === "context" &&
+            mutation.target.getAttribute("scoped") === null &&
+            mutation.attributeName === "scoped" &&
+            mutation.oldValue !== null &&
             isInitializedProvider(mutation.target.parentElement)
           ) {
             disposeProvider(mutation.target.parentElement);
           } else if (
             mutation.target.tagName === "SCRIPT" &&
-            mutation.attributeName === "type" &&
-            mutation.target.getAttribute("type") === "context" &&
+            mutation.target.getAttribute("scoped") !== null &&
             isUninitializedProvider(mutation.target.parentElement)
           ) {
             initProvider(mutation.target.parentElement);
