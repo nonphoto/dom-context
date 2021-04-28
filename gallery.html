@@ -5,8 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
-    <script type="module" src="./scoped-css.js"></script>
-    <script type="module" src="./scoped-js.js"></script>
+    <script type="module" src="./index.js"></script>
     <script
       type="module"
       src="https://cdn.skypack.dev/@hotwired/turbo"
@@ -36,6 +35,25 @@
         cursor: pointer;
         text-decoration: none;
         color: inherit;
+      }
+      div {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 50vmin;
+        height: 50vmin;
+        pointer-events: none;
+        z-index: -1;
+        background-color: lightgray;
+        transform: scale(0);
+      }
+      img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
       }
     </style>
     <script scoped type="module">
@@ -144,20 +162,7 @@
         data-key="echo"
         >Echo</a
       >
-      <style scoped>
-        div {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 50vmin;
-          height: 50vmin;
-          pointer-events: none;
-          z-index: -1;
-          background-color: lightgray;
-          transform: scale(0);
-        }
-      </style>
-      <div bind-style-transform="transform">
+      <div bind-style-transform="transform" data-turbo-permanent>
         <script scoped type="module">
           export default ({ activeKey, time }) => {
             const opacity = (element) =>
@@ -170,16 +175,6 @@
             return { opacity };
           };
         </script>
-        <style>
-          img {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-          }
-        </style>
         <img
           bind-style-opacity="opacity"
           bind-multiref="items"
