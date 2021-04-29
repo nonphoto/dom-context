@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script type="module" src="../index.js"></script>
+  </head>
+  <body>
+    <style>
+      html {
+        font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue",
+          sans-serif;
+        font-size: 20px;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      #parent {
+        background-color: #dde;
+        width: 100px;
+        height: 100px;
+      }
+      #child {
+        background-color: #aab;
+        width: 50px;
+        height: 50px;
+        position: relative;
+        top: 10px;
+        left: 10px;
+      }
+      #parent[data-layout] {
+        width: 200px;
+        height: 200px;
+        position: relative;
+        top: 100px;
+        left: 100px;
+      }
+    </style>
+    <script scoped type="module">
+      import sync, { cancelSync } from "https://cdn.skypack.dev/framesync";
+      import { animate, mix } from "https://cdn.skypack.dev/popmotion";
+      import {
+        layoutNode,
+        updateProjectionStyle,
+      } from "https://cdn.skypack.dev/projection@2.0.0-alpha.3";
+
+      function pixelsToPercent(pixels, min, max) {
+        return (pixels / (max - min)) * 100;
+      }
+
+      function mixRect(prev, next, p) {
+        return {
+          top: mix(prev.top, next.top, p),
+          left: mix(prev.left, next.left, p),
+          right: mix(prev.right, next.right, p),
+          bottom: mix(prev.bottom, next.bottom, p),
+        };
+      }
+
+      function animateRect(s, options = {}) {
+        const result = stream.data(stream.sample(s));
+        stream((prev) => {
+          if (prev && s()) {
+            animate({
+              ...options,
+              from: 0,
+              to: 1,
+              onUpdate: (p) => void result(mixRect(prev, s(), p)),
+            });
+          } else {
+            result(s());
+          }
+          return s();
+        }, stream.sample(s));
+        return result;
+      }
+
+      function getLayoutRect(element, trigger) {
+        const rect = stream.data();
+        stream.on([element, trigger], () => {
+          if (element()) {
+            sync.read(() => {
+              element().style.transform = "";
+              sync.read(
+                () => {
+                  rect(element().getBoundingClientRect());
+                },
+                false,
+                true
+              );
+            });
+          }
+        });
+        return rect;
+      }
+
+      function project(
+        element,
+        targetRect,
+        layoutRect,
+        parent,
+        borderRadius = 16
+      ) {
+        return stream(() => {
+          if (element()) {
+            const projection = layoutNode(
+              {
+                onProjectionUpdate: () =>
+                  updateProjectionStyle(element(), projection),
+              },
+              typeof parent === "function" ? parent() : undefined
+            );
+            stream.cleanup(() => {
+              projection.destroy();
+            });
+            stream(() => {
+              if (layoutRect()) {
+                projection.setLayout(layoutRect());
+              }
+            });
+            stream(() => {
+              if (targetRect()) {
+                console.log(targetRect());
+                projection.setTarget(targetRect());
+                element().style.borderRadius = `${pixelsToPercent(
+                  borderRadius,
+                  targetRect().left,
+                  targetRect().right
+                )}% / ${pixelsToPercent(
+                  borderRadius,
+                  targetRect().top,
+                  targetRect().bottom
+                )}%`;
+              }
+            });
+            return projection;
+          }
+        });
+      }
+
+      export default () => {
+        const [toggle, setToggle] = stream.create(false);
+        const click = () => {
+          setToggle(!stream.sample(toggle));
+        };
+        const parentElement = stream.data();
+        const childElement = stream.data();
+        const parentLayoutRect = getLayoutRect(parentElement, toggle);
+        const childLayoutRect = getLayoutRect(childElement, toggle);
+        const parentTargetRect = animateRect(parentLayoutRect);
+        const childTargetRect = animateRect(childLayoutRect);
+
+        const parentProjection = project(
+          parentElement,
+          parentTargetRect,
+          parentLayoutRect
+        );
+        project(
+          childElement,
+          childTargetRect,
+          childLayoutRect,
+          parentProjection
+        );
+
+        return {
+          click,
+          toggle,
+          parentElement,
+          childElement,
+        };
+      };
+    </script>
+    <div
+      id="parent"
+      bind-on-click="click"
+      bind-attr-data-layout="toggle"
+      bind-ref="parentElement"
+    >
+      <div id="child" bind-ref="childElement"></div>
+    </div>
+  </body>
+</html>

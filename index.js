@@ -2,7 +2,7 @@ import S from "https://cdn.skypack.dev/s-js";
 
 S.create = (...args) => {
   const s = S.data(...args);
-  return [(() => s(), (v) => s(v))];
+  return [() => s(), (v) => s(v)];
 };
 
 window.stream = S;
