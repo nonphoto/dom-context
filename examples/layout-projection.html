@@ -140,6 +140,7 @@
           setToggle(!stream.sample(toggle));
         };
         return {
+          name: "main",
           click,
           toggle,
           projectElement,
@@ -171,13 +172,14 @@
             projection
           );
           return {
-            parentElement: element,
+            name: "parent",
+            element,
             projection: childProjection,
             layoutTrigger: childTrigger,
           };
         };
       </script>
-      <div id="parent" bind-ref="parentElement">
+      <div id="parent" bind-ref="element">
         <script scoped type="module">
           export default ({
             projection,
@@ -199,13 +201,14 @@
               projection
             );
             return {
-              childElement: element,
+              name: "child",
+              element,
               projection: childProjection,
               layoutTrigger: childTrigger,
             };
           };
         </script>
-        <div id="child" bind-ref="childElement"></div>
+        <div id="child" bind-ref="element"></div>
       </div>
     </main>
   </body>

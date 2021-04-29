@@ -199,10 +199,10 @@ function initProvider(element, parentProviderState) {
         const parentContext = resolvedParentProviderState
           ? resolvedParentProviderState.context
           : {};
-        const url = URL.createObjectURL(
+        const src = URL.createObjectURL(
           new Blob([source], { type: "application/javascript" })
         );
-        return import(url).then((module) => {
+        return import(src).then((module) => {
           return S.root((disposer) => {
             const context = {
               ...parentContext,
@@ -210,7 +210,7 @@ function initProvider(element, parentProviderState) {
             };
             return {
               context,
-              src: url,
+              src,
               disposer,
             };
           });
@@ -221,11 +221,13 @@ function initProvider(element, parentProviderState) {
   walk(element, (current) => {
     if (scripts.includes(current)) {
       return false;
-    } else if (isUninitializedProvider(current)) {
+    }
+    if (isUninitializedConsumer(current)) {
+      initConsumer(current, element.__provider);
+    }
+    if (isUninitializedProvider(current)) {
       initProvider(current, element.__provider);
       return false;
-    } else if (isUninitializedConsumer(current)) {
-      initConsumer(current, element.__provider);
     }
   });
 }
@@ -249,13 +251,12 @@ function disposeProvider(element) {
   }
 }
 
-function walk(element, callback, context) {
+function walk(element, callback) {
   let current = element.firstElementChild;
-  if (callback(element, context) === false) {
-    return;
-  }
   while (current) {
-    walk(current, callback, context || element.__provider);
+    if (callback(current) !== false) {
+      walk(current, callback);
+    }
     current = current.nextElementSibling;
   }
 }
