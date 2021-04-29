@@ -31,7 +31,7 @@
         top: 10px;
         left: 10px;
       }
-      #parent[data-layout] {
+      main[data-layout] #parent {
         width: 200px;
         height: 200px;
         position: relative;
@@ -60,44 +60,38 @@
         };
       }
 
-      function animateRect(s, options = {}) {
-        const result = stream.data(stream.sample(s));
+      function animateRect(rect, options = {}) {
+        const result = stream.data(stream.sample(rect));
         stream((prev) => {
-          if (prev && s()) {
+          if (prev && rect()) {
             animate({
               ...options,
               from: 0,
               to: 1,
-              onUpdate: (p) => void result(mixRect(prev, s(), p)),
+              onUpdate: (p) => void result(mixRect(prev, rect(), p)),
             });
           } else {
-            result(s());
+            result(rect());
           }
-          return s();
-        }, stream.sample(s));
+          return rect();
+        }, stream.sample(rect));
         return result;
       }
 
       function getLayoutRect(element, trigger) {
         const rect = stream.data();
+        const childTrigger = stream.data();
         stream.on([element, trigger], () => {
           if (element()) {
-            sync.read(() => {
-              element().style.transform = "";
-              sync.read(
-                () => {
-                  rect(element().getBoundingClientRect());
-                },
-                false,
-                true
-              );
-            });
+            element().style.transform = "";
+            childTrigger(null);
+            rect(element().getBoundingClientRect());
           }
         });
-        return rect;
+        return [rect, childTrigger];
       }
 
-      function project(
+      function projectElement(
         element,
         targetRect,
         layoutRect,
@@ -121,9 +115,8 @@
                 projection.setLayout(layoutRect());
               }
             });
-            stream(() => {
+            stream.on([targetRect, layoutRect], () => {
               if (targetRect()) {
-                console.log(targetRect());
                 projection.setTarget(targetRect());
                 element().style.borderRadius = `${pixelsToPercent(
                   borderRadius,
@@ -146,40 +139,74 @@
         const click = () => {
           setToggle(!stream.sample(toggle));
         };
-        const parentElement = stream.data();
-        const childElement = stream.data();
-        const parentLayoutRect = getLayoutRect(parentElement, toggle);
-        const childLayoutRect = getLayoutRect(childElement, toggle);
-        const parentTargetRect = animateRect(parentLayoutRect);
-        const childTargetRect = animateRect(childLayoutRect);
-
-        const parentProjection = project(
-          parentElement,
-          parentTargetRect,
-          parentLayoutRect
-        );
-        project(
-          childElement,
-          childTargetRect,
-          childLayoutRect,
-          parentProjection
-        );
-
         return {
           click,
           toggle,
-          parentElement,
-          childElement,
+          projectElement,
+          getLayoutRect,
+          animateRect,
+          layoutTrigger: toggle,
         };
       };
     </script>
-    <div
-      id="parent"
-      bind-on-click="click"
-      bind-attr-data-layout="toggle"
-      bind-ref="parentElement"
-    >
-      <div id="child" bind-ref="childElement"></div>
-    </div>
+    <main bind-on-click="click" bind-attr-data-layout="toggle">
+      <script scoped type="module">
+        export default ({
+          projection,
+          projectElement,
+          getLayoutRect,
+          animateRect,
+          layoutTrigger,
+        }) => {
+          const element = stream.data();
+          const [layoutRect, childTrigger] = getLayoutRect(
+            element,
+            layoutTrigger
+          );
+          const targetRect = animateRect(layoutRect);
+          const childProjection = projectElement(
+            element,
+            targetRect,
+            layoutRect,
+            projection
+          );
+          return {
+            parentElement: element,
+            projection: childProjection,
+            layoutTrigger: childTrigger,
+          };
+        };
+      </script>
+      <div id="parent" bind-ref="parentElement">
+        <script scoped type="module">
+          export default ({
+            projection,
+            projectElement,
+            getLayoutRect,
+            animateRect,
+            layoutTrigger,
+          }) => {
+            const element = stream.data();
+            const [layoutRect, childTrigger] = getLayoutRect(
+              element,
+              layoutTrigger
+            );
+            const targetRect = animateRect(layoutRect);
+            const childProjection = projectElement(
+              element,
+              targetRect,
+              layoutRect,
+              projection
+            );
+            return {
+              childElement: element,
+              projection: childProjection,
+              layoutTrigger: childTrigger,
+            };
+          };
+        </script>
+        <div id="child" bind-ref="childElement"></div>
+      </div>
+    </main>
   </body>
 </html>
