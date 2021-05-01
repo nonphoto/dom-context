@@ -1,15 +1,16 @@
-import S from "https://cdn.skypack.dev/s-js";
+import Stream from "https://cdn.skypack.dev/@nonphoto/s-js";
+import * as moduleLexer from "https://cdn.skypack.dev/es-module-lexer";
 
-S.create = (...args) => {
-  const s = S.data(...args);
+Stream.create = (...args) => {
+  const s = Stream.data(...args);
   return [() => s(), (v) => s(v)];
 };
 
-window.stream = S;
+window.Stream = Stream;
 
 function textDirective(element, value) {
   if (typeof value === "function") {
-    S(() => {
+    Stream(() => {
       element.textContent = value(element);
     });
   } else {
@@ -19,7 +20,7 @@ function textDirective(element, value) {
 
 function styleDirective(element, value, name) {
   if (typeof value === "function") {
-    S(() => {
+    Stream(() => {
       styleDirective(element, value(element), name);
     });
   } else {
@@ -29,7 +30,7 @@ function styleDirective(element, value, name) {
 
 function attributeDirective(element, value, name) {
   if (typeof value === "function") {
-    S(() => {
+    Stream(() => {
       attributeDirective(element, value(element), name);
     });
   } else {
@@ -47,22 +48,22 @@ function attributeDirective(element, value, name) {
 
 function onDirective(element, value, name) {
   element.addEventListener(name, value);
-  S.cleanup(() => {
+  Stream.cleanup(() => {
     element.removeEventListener(name, value);
   });
 }
 
 function refDirective(element, value) {
   value(element);
-  S.cleanup(() => {
+  Stream.cleanup(() => {
     value(null);
   });
 }
 
 function multirefDirective(element, value) {
-  value([...(S.sample(value) || []), element]);
-  S.cleanup(() => {
-    value(S.sample(value).filter((item) => item !== element));
+  value([...(Stream.sample(value) || []), element]);
+  Stream.cleanup(() => {
+    value(Stream.sample(value).filter((item) => item !== element));
   });
 }
 
@@ -106,7 +107,7 @@ function getClosestProvider(node) {
 
 function isContextScript(element) {
   return (
-    element.tagName === "SCRIPT" && element.getAttribute("scoped") !== null
+    element.tagName === "SCRIPT" && element.getAttribute("context") !== null
   );
 }
 
@@ -148,11 +149,10 @@ function initDirective(element, attributeName, providerState) {
   );
   if (directive && !element.__consumer[attributeName] && providerState) {
     providerState.then((resolved) => {
-      S.root((dispose) => {
+      Stream.root((dispose) => {
         const [, ...matches] = directive.pattern.exec(attributeName);
         if (resolved.context[attributeValue]) {
           directive.fn(element, resolved.context[attributeValue], ...matches);
-
           element.__consumer[attributeName] = dispose;
         } else {
           console.warn(
@@ -193,27 +193,31 @@ function initProvider(element, parentProviderState) {
   }
   const scripts = Array.from(element.children).filter(isContextScript);
   if (isUninitializedProvider(element)) {
-    const source = scripts.map((script) => script.textContent).join("\n");
+    const source = scripts[0].textContent;
     element.__provider = Promise.resolve(parentProviderState).then(
-      (resolvedParentProviderState) => {
-        const parentContext = resolvedParentProviderState
-          ? resolvedParentProviderState.context
-          : {};
+      async (resolved) => {
+        await moduleLexer.init;
+        const [imports] = moduleLexer.parse(source);
+        let text = source;
+        for (const { s, e } of imports) {
+          text =
+            text.slice(0, s) +
+            new URL(text.slice(s, e), window.location.href) +
+            text.slice(e);
+        }
+        text = resolved
+          ? `import * as context from "${resolved.src}"; export * from "${resolved.src}"; ${text}`
+          : text;
         const src = URL.createObjectURL(
-          new Blob([source], { type: "application/javascript" })
+          new Blob([text], { type: "application/javascript" })
         );
-        return import(src).then((module) => {
-          return S.root((disposer) => {
-            const context = {
-              ...parentContext,
-              ...module.default(parentContext),
-            };
-            return {
-              context,
-              src,
-              disposer,
-            };
-          });
+        return Stream.asyncRoot(async (disposer) => {
+          const context = await import(src);
+          return {
+            context,
+            src,
+            disposer,
+          };
         });
       }
     );
@@ -304,15 +308,15 @@ function start() {
         if (mutation.type === "attributes") {
           if (
             mutation.target.tagName === "SCRIPT" &&
-            mutation.target.getAttribute("scoped") === null &&
-            mutation.attributeName === "scoped" &&
+            mutation.target.getAttribute("context") === null &&
+            mutation.attributeName === "context" &&
             mutation.oldValue !== null &&
             isInitializedProvider(mutation.target.parentElement)
           ) {
             disposeProvider(mutation.target.parentElement);
           } else if (
             mutation.target.tagName === "SCRIPT" &&
-            mutation.target.getAttribute("scoped") !== null &&
+            mutation.target.getAttribute("context") !== null &&
             isUninitializedProvider(mutation.target.parentElement)
           ) {
             initProvider(mutation.target.parentElement);

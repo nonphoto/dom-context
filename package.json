@@ -4,14 +4,11 @@
   "description": "DOM elements as context providers and consumers",
   "main": "index.js",
   "exports": {
-    "import": "./index.js",
     "default": "./index.js"
   },
   "keywords": [],
   "type": "module",
-  "scripts": {
-    "test": "exit 0"
-  },
+  "scripts": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nonphoto/chloranthy.git"

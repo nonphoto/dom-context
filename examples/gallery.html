@@ -52,76 +52,62 @@
         opacity: 0;
       }
     </style>
-    <script scoped type="module">
-      export default () => {
-        const mouse = stream.data([]);
-        const handleMousemove = (event) =>
-          mouse([event.clientX, event.clientY]);
-        window.addEventListener("mousemove", handleMousemove);
-        stream.cleanup(() => {
-          window.removeEventListener("mousemove", handleMousemove);
-        });
-        const time = stream.data(0);
-        (function tick(_t) {
-          time(_t);
-          requestAnimationFrame(tick);
-        })(0);
-        return { mouse, time };
-      };
+    <script context src>
+      export const mouse = Stream.data([]);
+      const handleMousemove = (event) => mouse([event.clientX, event.clientY]);
+      window.addEventListener("mousemove", handleMousemove);
+      Stream.cleanup(() => {
+        window.removeEventListener("mousemove", handleMousemove);
+      });
+      export const time = Stream.data(0);
+      (function tick(_t) {
+        time(_t);
+        requestAnimationFrame(tick);
+      })(0);
     </script>
     <main>
-      <script scoped type="module">
-        export default ({ mouse, time }) => {
-          const activeKey = stream.data(null);
-          const mouseenter = (event) =>
-            void activeKey(event.target.dataset.key);
-          const mouseleave = () => void activeKey(undefined);
-          const items = stream.data([]);
-          const fitRect = (rect, target) => {
-            var sw = target[2] / rect[2];
-            var sh = target[3] / rect[3];
-            var scale = (sw + sh) / 2;
-
-            return [
-              target[0] + (target[2] - rect[2] * scale) / 2,
-              target[1] + (target[3] - rect[3] * scale) / 2,
-              rect[2] * scale,
-              rect[3] * scale,
-            ];
-          };
-          const rects = stream(() =>
-            Object.fromEntries(
-              items().map((item) => [
-                item.dataset.key,
-                fitRect([0, 0, 1, item.dataset.aspectRatio], [0, 0, 1, 1]),
-              ])
-            )
-          );
-          const containerScale = stream.on(
-            time,
-            ([w, h]) => {
-              const [, , wt, ht] = activeKey()
-                ? rects()[activeKey()]
-                : [0, 0, 1.5, 0];
-              return [w + (wt - w) * 0.2, h + (ht - h) * 0.2];
-            },
-            [1.5, 0]
-          );
-          const transform = stream(
-            () =>
-              `translate(${mouse()[0]}px, ${mouse()[1]}px)
+      <script context src>
+        export const activeKey = Stream.data(null);
+        export const mouseenter = (event) =>
+          void activeKey(event.target.dataset.key);
+        export const mouseleave = () => void activeKey(undefined);
+        export const items = Stream.data([]);
+        const fitRect = (rect, target) => {
+          var sw = target[2] / rect[2];
+          var sh = target[3] / rect[3];
+          var scale = (sw + sh) / 2;
+          return [
+            target[0] + (target[2] - rect[2] * scale) / 2,
+            target[1] + (target[3] - rect[3] * scale) / 2,
+            rect[2] * scale,
+            rect[3] * scale,
+          ];
+        };
+        const rects = Stream(() =>
+          Object.fromEntries(
+            items().map((item) => [
+              item.dataset.key,
+              fitRect([0, 0, 1, item.dataset.aspectRatio], [0, 0, 1, 1]),
+            ])
+          )
+        );
+        const containerScale = Stream.on(
+          context.time,
+          ([w, h]) => {
+            const [, , wt, ht] = activeKey()
+              ? rects()[activeKey()]
+              : [0, 0, 1.5, 0];
+            return [w + (wt - w) * 0.2, h + (ht - h) * 0.2];
+          },
+          [1.5, 0]
+        );
+        export const transform = Stream(
+          () =>
+            `translate(${context.mouse()[0]}px, ${context.mouse()[1]}px)
               translate(-50%, -50%)
               scale(${containerScale()[0]}, ${containerScale()[1]})
               `
-          );
-          return {
-            mouseenter,
-            mouseleave,
-            activeKey,
-            transform,
-            items,
-          };
-        };
+        );
       </script>
       <a
         bind-on-mouseenter="mouseenter"
@@ -159,17 +145,16 @@
         >Echo</a
       >
       <div bind-style-transform="transform" data-turbo-permanent>
-        <script scoped type="module">
-          export default ({ activeKey, time }) => {
-            const opacity = (element) =>
-              stream.on(
-                time,
-                (o) =>
-                  o + ((activeKey() === element.dataset.key ? 1 : 0) - o) * 0.2,
-                0
-              );
-            return { opacity };
-          };
+        <script context src>
+          export const opacity = (element) =>
+            Stream.on(
+              context.time,
+              (o) =>
+                o +
+                ((context.activeKey() === element.dataset.key ? 1 : 0) - o) *
+                  0.2,
+              0
+            );
         </script>
         <img
           bind-style-opacity="opacity"

@@ -12,30 +12,20 @@
     ></script>
   </head>
   <body>
-    <script scoped type="module">
-      export default () => {
-        const time = stream.data(0);
-        (function tick(_t) {
-          time(_t);
-          requestAnimationFrame(tick);
-        })(0);
-        return { time };
-      };
+    <script context src>
+      export const [time, setTime] = Stream.create(0);
+      (function tick(_t) {
+        setTime(_t);
+        requestAnimationFrame(tick);
+      })(0);
     </script>
     <main>
-      <script scoped type="module">
-        export default ({ time }) => {
-          const seconds = stream(() => Math.floor(time() * 0.001));
-          const hidden = stream(() => seconds() % 3 == 0);
-          const wiggle = stream(
-            () => `translateY(${Math.sin(time() * 0.001) * 10}px)`
-          );
-          return {
-            seconds,
-            hidden,
-            wiggle,
-          };
-        };
+      <script context src>
+        export const seconds = Stream(() => Math.floor(context.time() * 0.001));
+        export const hidden = Stream(() => seconds() % 3 == 0);
+        export const wiggle = Stream(
+          () => `translateY(${Math.sin(context.time() * 0.001) * 10}px)`
+        );
       </script>
       <h1>
         Time:
