@@ -50,40 +50,18 @@
         setToggle(!Stream.sample(toggle));
       };
     </script>
-    <main bind-on-click="click" bind-attr-data-layout="toggle">
+    <main bind-on="click: click" bind-attr="data-layout: toggle">
       <script context src>
-        import { getLayoutRect, animateRect, projectElement } from "./utils.js";
-        export const element = Stream.data();
-        export const [layoutRect, layoutTrigger] = getLayoutRect(
-          element,
-          context.layoutTrigger
-        );
-        const targetRect = animateRect(layoutRect);
-        export const projection = projectElement(
-          element,
-          targetRect,
-          layoutRect,
-          context.projection
+        import { animatedElement } from "./utils.js";
+        export const { element, projection, layoutTrigger } = animatedElement(
+          context
         );
       </script>
       <div id="parent" bind-ref="element">
         <script context src>
-          import {
-            getLayoutRect,
-            animateRect,
-            projectElement,
-          } from "./utils.js";
-          export const element = Stream.data();
-          export const [layoutRect, layoutTrigger] = getLayoutRect(
-            element,
-            context.layoutTrigger
-          );
-          const targetRect = animateRect(layoutRect);
-          export const projection = projectElement(
-            element,
-            targetRect,
-            layoutRect,
-            context.projection
+          import { animatedElement } from "./utils.js";
+          export const { element, projection, layoutTrigger } = animatedElement(
+            context
           );
         </script>
         <div id="child" bind-ref="element"></div>

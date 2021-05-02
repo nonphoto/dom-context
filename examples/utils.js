@@ -38,7 +38,6 @@ export function animateRect(rect, options = {}) {
 export function getLayoutRect(element, trigger) {
   const rect = Stream.data();
   const childTrigger = Stream.data();
-  console.log(trigger);
   Stream.on([element, trigger], () => {
     if (element()) {
       element().style.transform = "";
@@ -90,4 +89,20 @@ export function projectElement(
       return projection;
     }
   });
+}
+
+export function animatedElement(context) {
+  const element = Stream.data();
+  const [layoutRect, layoutTrigger] = getLayoutRect(
+    element,
+    context.layoutTrigger
+  );
+  const targetRect = animateRect(layoutRect);
+  const projection = projectElement(
+    element,
+    targetRect,
+    layoutRect,
+    context.projection
+  );
+  return { element, projection, layoutTrigger };
 }

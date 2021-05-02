@@ -1,5 +1,6 @@
 import Stream from "https://cdn.skypack.dev/@nonphoto/s-js";
 import * as moduleLexer from "https://cdn.skypack.dev/es-module-lexer";
+import get from "https://cdn.skypack.dev/lodash-es/get";
 
 Stream.create = (...args) => {
   const s = Stream.data(...args);
@@ -11,329 +12,284 @@ window.Stream = Stream;
 function textDirective(element, value) {
   if (typeof value === "function") {
     Stream(() => {
-      element.textContent = value(element);
+      textDirective(element, value(element));
     });
   } else {
     element.textContent = value;
   }
 }
 
-function styleDirective(element, value, name) {
-  if (typeof value === "function") {
-    Stream(() => {
-      styleDirective(element, value(element), name);
-    });
-  } else {
-    element.style[name] = value;
-  }
-}
-
-function attributeDirective(element, value, name) {
-  if (typeof value === "function") {
-    Stream(() => {
-      attributeDirective(element, value(element), name);
-    });
-  } else {
-    if (typeof value === "boolean") {
-      if (value) {
-        element.setAttribute(name, "");
-      } else {
-        element.removeAttribute(name);
-      }
+function styleDirective(element, map) {
+  function set(key, value) {
+    if (typeof value === "function") {
+      Stream(() => {
+        set(key, value(element));
+      });
     } else {
-      element.setAttribute(name, value);
+      element.style[key] = value;
     }
   }
+  for (const [key, value] of map.entries()) {
+    set(key, value);
+  }
 }
 
-function onDirective(element, value, name) {
-  element.addEventListener(name, value);
-  Stream.cleanup(() => {
-    element.removeEventListener(name, value);
-  });
+function attributeDirective(element, map) {
+  function set(key, value) {
+    if (typeof value === "function") {
+      Stream(() => {
+        set(key, value(element));
+      });
+    } else {
+      if (typeof value === "boolean") {
+        if (value) {
+          element.setAttribute(key, "");
+        } else {
+          element.removeAttribute(key);
+        }
+      } else {
+        element.setAttribute(key, value);
+      }
+    }
+  }
+  for (const [key, value] of map.entries()) {
+    set(key, value);
+  }
 }
 
-function refDirective(element, value) {
-  value(element);
-  Stream.cleanup(() => {
-    value(null);
-  });
+function onDirective(element, map) {
+  for (const [key, value] of map.entries()) {
+    element.addEventListener(key, value);
+    Stream.cleanup(() => {
+      element.removeEventListener(key, value);
+    });
+  }
 }
 
-function multirefDirective(element, value) {
-  value([...(Stream.sample(value) || []), element]);
-  Stream.cleanup(() => {
-    value(Stream.sample(value).filter((item) => item !== element));
-  });
+function refDirective(element, vector) {
+  for (const value of vector) {
+    value(element);
+    Stream.cleanup(() => {
+      value(null);
+    });
+  }
+}
+
+function multirefDirective(element, vector) {
+  for (const value of vector) {
+    value([...(Stream.sample(value) || []), element]);
+    Stream.cleanup(() => {
+      value(Stream.sample(value).filter((item) => item !== element));
+    });
+  }
+}
+
+function scalarParser(key, context) {
+  const value = get(context, key);
+  if (!value) {
+    console.warn(`Value with key "${key}" not found in context`);
+  }
+  return value;
+}
+
+function vectorParser(s, context) {
+  return s.split(/\s+/).map((key) => scalarParser(key, context));
+}
+
+function mapParser(s, context) {
+  return new Map(
+    s.split(";").map((assignment) => {
+      const [key, value, ...rest] = assignment.split(":");
+      if (!key || !value || rest.length > 0) {
+        throw new Error(`Malformed attribute value ${assignment}`);
+      } else {
+        return [key.trim(), scalarParser(value.trim(), context)];
+      }
+    })
+  );
 }
 
 const directives = [
   {
-    pattern: /bind-text/,
-    fn: textDirective,
+    parser: scalarParser,
+    name: "bind-text",
+    callback: textDirective,
   },
   {
-    pattern: /bind-attr-(\S+)/,
-    fn: attributeDirective,
+    parser: mapParser,
+    name: "bind-attr",
+    callback: attributeDirective,
   },
   {
-    pattern: /bind-style-(\S+)/,
-    fn: styleDirective,
+    parser: mapParser,
+    name: "bind-style",
+    callback: styleDirective,
   },
   {
-    pattern: /bind-on-(\S+)/,
-    fn: onDirective,
+    parser: mapParser,
+    name: "bind-on",
+    callback: onDirective,
   },
   {
-    pattern: /bind-ref/,
-    fn: refDirective,
+    parser: vectorParser,
+    name: "bind-ref",
+    callback: refDirective,
   },
   {
-    pattern: /bind-multiref/,
-    fn: multirefDirective,
+    parser: vectorParser,
+    name: "bind-multiref",
+    callback: multirefDirective,
   },
 ];
 
-function getClosestProvider(node) {
-  let parent = node.parentElement;
-  while (parent) {
-    if (isInitializedProvider(parent)) {
-      return parent;
-    }
-    parent = parent.parentElement;
-  }
-  return null;
-}
+const directiveNames = directives.map((directive) => directive.name);
 
-function isContextScript(element) {
+function isProvider(element) {
   return (
     element.tagName === "SCRIPT" && element.getAttribute("context") !== null
   );
 }
 
-function isUninitializedProvider(node) {
-  return Array.from(node.children).some(isContextScript) && !node.__provider;
-}
-
-function isInitializedProvider(node) {
-  return !!node.__provider;
-}
-
-function isUninitializedConsumer(node) {
-  return (
-    directives.some(({ pattern }) =>
-      Array.from(node.attributes).some(({ name }) => pattern.test(name))
-    ) && !node.__consumer
+async function runInlineScript(script, parentProviderState) {
+  await moduleLexer.init;
+  const [imports] = moduleLexer.parse(script.textContent);
+  let text = script.textContent;
+  for (const { s, e } of imports) {
+    text =
+      text.slice(0, s) +
+      new URL(text.slice(s, e), window.location.href) +
+      text.slice(e);
+  }
+  text = parentProviderState
+    ? `import * as context from "${parentProviderState.src}"; export * from "${parentProviderState.src}"; ${text}`
+    : text;
+  const src = URL.createObjectURL(
+    new Blob([text], { type: "application/javascript" })
   );
+  return Stream.asyncRoot(async (disposer) => {
+    const context = await import(src);
+    return {
+      context,
+      src,
+      disposer,
+    };
+  });
 }
 
-function isInitializedConsumer(node) {
-  return !!node.__consumer;
-}
-
-function isInitializedDirective(node, attributeName) {
-  return node.__consumer && node.__consumer[attributeName];
-}
-
-function initDirective(element, attributeName, providerState) {
-  if (typeof providerState === "undefined") {
-    const provider = getClosestProvider(element);
-    providerState = provider ? provider.__provider : null;
-  }
-  if (!element.__consumer) {
-    element.__consumer = {};
-  }
-  const attributeValue = element.getAttribute(attributeName);
-  const directive = directives.find(({ pattern }) =>
-    pattern.test(attributeName)
-  );
-  if (directive && !element.__consumer[attributeName] && providerState) {
-    providerState.then((resolved) => {
-      Stream.root((dispose) => {
-        const [, ...matches] = directive.pattern.exec(attributeName);
-        if (resolved.context[attributeValue]) {
-          directive.fn(element, resolved.context[attributeValue], ...matches);
-          element.__consumer[attributeName] = dispose;
-        } else {
-          console.warn(
-            `value with key "${attributeValue}" not found in context`
-          );
-        }
-      });
-    });
-  }
-}
-
-function disposeDirective(element, attributeName) {
-  element.__consumer[attributeName]();
-  delete element.__consumer[attributeName];
-}
-
-function initConsumer(element, providerState) {
-  if (typeof providerState === "undefined") {
-    const provider = getClosestProvider(element);
-    providerState = provider ? provider.__provider : null;
-  }
-  for (const { name } of Array.from(element.attributes)) {
-    initDirective(element, name, providerState);
-  }
-}
-
-function disposeConsumer(element) {
-  for (const key in element.__consumer) {
-    disposeDirective(element, key);
-  }
-  delete element.__consumer;
-}
-
-function initProvider(element, parentProviderState) {
+async function initOrUpdate(node, parentProviderState) {
   if (typeof parentProviderState === "undefined") {
-    const provider = getClosestProvider(element);
-    parentProviderState = provider ? provider.__provider : null;
-  }
-  const scripts = Array.from(element.children).filter(isContextScript);
-  if (isUninitializedProvider(element)) {
-    const source = scripts[0].textContent;
-    element.__provider = Promise.resolve(parentProviderState).then(
-      async (resolved) => {
-        await moduleLexer.init;
-        const [imports] = moduleLexer.parse(source);
-        let text = source;
-        for (const { s, e } of imports) {
-          text =
-            text.slice(0, s) +
-            new URL(text.slice(s, e), window.location.href) +
-            text.slice(e);
-        }
-        text = resolved
-          ? `import * as context from "${resolved.src}"; export * from "${resolved.src}"; ${text}`
-          : text;
-        const src = URL.createObjectURL(
-          new Blob([text], { type: "application/javascript" })
-        );
-        return Stream.asyncRoot(async (disposer) => {
-          const context = await import(src);
-          return {
-            context,
-            src,
-            disposer,
-          };
-        });
+    let parent = node.parentElement;
+    while (parent) {
+      if (isProvider(parent) && parent.__provider) {
+        parentProviderState = parent.__provider;
+        break;
       }
+      parent = parent.parentElement;
+    }
+  }
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    dispose(node);
+    if (isProvider(node)) {
+      node.__provider = await runInlineScript(node, parentProviderState);
+      parentProviderState = node.__provider;
+    }
+    for (const attribute of Array.from(node.attributes)) {
+      const directive = directives.find(
+        (directive) => directive.name === attribute.name
+      );
+      if (directive) {
+        const data = directive.parser(
+          attribute.value,
+          parentProviderState.context
+        );
+        if (data) {
+          Stream.root((dispose) => {
+            directive.callback(node, data);
+            if (!node.__consumer) {
+              node.__consumer = {};
+            }
+            node.__consumer[attribute.name] = dispose;
+          });
+        }
+      }
+    }
+  }
+  if (node.firstElementChild) {
+    initOrUpdate(
+      node.firstElementChild,
+      node.__provider || parentProviderState
     );
   }
-  walk(element, (current) => {
-    if (scripts.includes(current)) {
-      return false;
-    }
-    if (isUninitializedConsumer(current)) {
-      initConsumer(current, element.__provider);
-    }
-    if (isUninitializedProvider(current)) {
-      initProvider(current, element.__provider);
-      return false;
-    }
-  });
-}
-
-function disposeProvider(element) {
-  element.__provider.then((providerState) => {
-    providerState.disposer();
-  });
-  delete element.__provider;
-  walk(element, (current) => {
-    if (isInitializedProvider(current)) {
-      disposeProvider(current);
-      return false;
-    } else if (isInitializedConsumer(current)) {
-      disposeConsumer(current);
-    }
-  });
-  const parentProvider = getClosestProvider(element);
-  if (parentProvider) {
-    initProvider(parentProvider);
+  if (node.nextElementSibling) {
+    initOrUpdate(
+      node.nextElementSibling,
+      node.__provider || parentProviderState
+    );
   }
 }
 
-function walk(element, callback) {
-  let current = element.firstElementChild;
-  while (current) {
-    if (callback(current) !== false) {
-      walk(current, callback);
+function dispose(node) {
+  if (node.__provider) {
+    node.__provider.disposer();
+    delete node.__provider;
+  }
+  if (node.__consumer) {
+    for (const attributeName in node.__consumer) {
+      node.__consumer[attributeName]();
     }
-    current = current.nextElementSibling;
+    delete node.__consumer;
+  }
+}
+
+function disposeAll(node) {
+  dispose(node);
+  for (const child of Array.from(node.childNodes)) {
+    disposeAll(child);
   }
 }
 
 let observer = null;
 
 function start() {
-  initProvider(document.body, null);
-  if (observer) {
-    observer.disconnect();
-  }
+  if (observer) return;
+  initOrUpdate(document.body, null);
   observer = new MutationObserver((mutations) => {
+    const invalidNodes = [];
     for (const mutation of mutations) {
+      if (
+        mutation.target.nodeType === Node.TEXT_NODE &&
+        isProvider(mutation.target.parentElement)
+      ) {
+        invalidNodes.push(mutation.target.parentElement);
+      }
       if (mutation.target.nodeType === Node.ELEMENT_NODE) {
         if (mutation.type === "childList") {
           for (const node of mutation.removedNodes) {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-              if (
-                isContextScript(node) &&
-                isInitializedProvider(node.parentElement)
-              ) {
-                disposeProvider(node.parentElement);
-              } else if (isInitializedProvider(node)) {
-                disposeProvider(node);
-              } else if (isInitializedConsumer(node)) {
-                disposeConsumer(node);
-              }
-            }
+            disposeAll(node);
           }
-          for (const node of mutation.addedNodes) {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-              if (
-                isContextScript(node) &&
-                isUninitializedProvider(node.parent)
-              ) {
-                initProvider(node.parent);
-              } else if (isUninitializedProvider(node)) {
-                initProvider(node);
-              } else if (isUninitializedConsumer(node)) {
-                initConsumer(node);
-              }
-            }
+          if (mutation.nextSibling) {
+            invalidNodes.push(mutation.nextSibling);
           }
         }
         if (mutation.type === "attributes") {
           if (
             mutation.target.tagName === "SCRIPT" &&
-            mutation.target.getAttribute("context") === null &&
-            mutation.attributeName === "context" &&
-            mutation.oldValue !== null &&
-            isInitializedProvider(mutation.target.parentElement)
+            mutation.attributeName === "context"
           ) {
-            disposeProvider(mutation.target.parentElement);
-          } else if (
-            mutation.target.tagName === "SCRIPT" &&
-            mutation.target.getAttribute("context") !== null &&
-            isUninitializedProvider(mutation.target.parentElement)
-          ) {
-            initProvider(mutation.target.parentElement);
-          } else {
-            if (
-              isInitializedDirective(mutation.target, mutation.attributeName)
-            ) {
-              disposeDirective(mutation.target, mutation.attributeName);
-            }
-            const newValue = mutation.target.getAttribute(
-              mutation.attributeName
-            );
-            if (newValue) {
-              initDirective(mutation.target, mutation.attributeName);
-            }
+            invalidNodes.push(mutation.target);
+          } else if (directiveNames.includes(mutation.attributeName)) {
+            invalidNodes.push(mutation.target);
           }
         }
+      }
+    }
+    for (const node of invalidNodes) {
+      let parent = node.parentElement;
+      while (parent && !invalidNodes.includes(parent)) {
+        parent = parent.parentElement;
+      }
+      if (!parent) {
+        initOrUpdate(node);
       }
     }
   });
@@ -341,7 +297,9 @@ function start() {
     subtree: true,
     childList: true,
     attributes: true,
+    attributeFilter: ["context", ...directiveNames],
     attributeOldValue: true,
+    characterData: true,
   });
 }
 

@@ -110,41 +110,36 @@
         );
       </script>
       <a
-        bind-on-mouseenter="mouseenter"
-        bind-on-mouseleave="mouseleave"
+        bind-on="mouseenter: mouseenter; mouseleave: mouseleave"
         href="/"
         data-key="alpha"
         >Alpha</a
       >
       <a
-        bind-on-mouseenter="mouseenter"
-        bind-on-mouseleave="mouseleave"
+        bind-on="mouseenter: mouseenter; mouseleave: mouseleave"
         href="/"
         data-key="bravo"
         >Bravo</a
       >
       <a
-        bind-on-mouseenter="mouseenter"
-        bind-on-mouseleave="mouseleave"
+        bind-on="mouseenter: mouseenter; mouseleave: mouseleave"
         href="/"
         data-key="charlie"
         >Charlie</a
       >
       <a
-        bind-on-mouseenter="mouseenter"
-        bind-on-mouseleave="mouseleave"
+        bind-on="mouseenter: mouseenter; mouseleave: mouseleave"
         href="/"
         data-key="delta"
         >Delta</a
       >
       <a
-        bind-on-mouseenter="mouseenter"
-        bind-on-mouseleave="mouseleave"
+        bind-on="mouseenter: mouseenter; mouseleave: mouseleave"
         href="/"
         data-key="echo"
         >Echo</a
       >
-      <div bind-style-transform="transform" data-turbo-permanent>
+      <div bind-style="transform: transform" data-turbo-permanent>
         <script context src>
           export const opacity = (element) =>
             Stream.on(
@@ -157,35 +152,35 @@
             );
         </script>
         <img
-          bind-style-opacity="opacity"
+          bind-style="opacity: opacity"
           bind-multiref="items"
           data-key="alpha"
           data-aspect-ratio="0.634"
           src="https://images.unsplash.com/photo-1509957660513-3cfee07defec?w=1000&q=80"
         />
         <img
-          bind-style-opacity="opacity"
+          bind-style="opacity: opacity"
           bind-multiref="items"
           data-key="bravo"
           data-aspect-ratio="1.145"
           src="https://images.unsplash.com/photo-1497377701144-65a4a020f4c9?w=1000&q=80"
         />
         <img
-          bind-style-opacity="opacity"
+          bind-style="opacity: opacity"
           bind-multiref="items"
           data-key="charlie"
           data-aspect-ratio="0.748"
           src="https://images.unsplash.com/photo-1531523499679-7416e782dd96?w=1000&q=80"
         />
         <img
-          bind-style-opacity="opacity"
+          bind-style="opacity: opacity"
           bind-multiref="items"
           data-key="delta"
           data-aspect-ratio="1.780"
           src="https://images.unsplash.com/photo-1535629097462-c777c5b466a1?w=1000&q=80"
         />
         <img
-          bind-style-opacity="opacity"
+          bind-style="opacity: opacity"
           bind-multiref="items"
           data-key="echo"
           data-aspect-ratio="0.5625"

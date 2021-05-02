@@ -28,16 +28,20 @@
         );
       </script>
       <h1>
-        Time:
+        Seconds:
         <span
           bind-text="seconds"
-          bind-attr-hidden="hidden"
-          bind-style-transform="wiggle"
+          bind-attr="hidden: hidden"
+          bind-style="transform: wiggle"
           style="display: inline-block"
           >0</span
         >
       </h1>
     </main>
+    <h1>
+      Milliseconds:
+      <span bind-text="time">0</span>
+    </h1>
     <a href="/gallery.html">Gallery</a>
   </body>
 </html>
