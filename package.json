@@ -8,7 +8,9 @@
   },
   "keywords": [],
   "type": "module",
-  "scripts": {},
+  "scripts": {
+    "test": "exit 0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nonphoto/chloranthy.git"
