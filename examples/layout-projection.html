@@ -52,14 +52,16 @@
     </script>
     <main bind-on="click: click" bind-attr="data-layout: toggle">
       <script context src>
-        import { animatedElement } from "./utils.js";
+        import { animatedElement } from "./animation.js";
+        import { hello } from "./other.js";
+        hello();
         export const { element, projection, layoutTrigger } = animatedElement(
           context
         );
       </script>
       <div id="parent" bind-ref="element">
         <script context src>
-          import { animatedElement } from "./utils.js";
+          import { animatedElement } from "./animation.js";
           export const { element, projection, layoutTrigger } = animatedElement(
             context
           );

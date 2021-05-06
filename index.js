@@ -153,13 +153,15 @@ function isProvider(element) {
 async function runInlineScript(script, parentProviderState) {
   await moduleLexer.init;
   const [imports] = moduleLexer.parse(script.textContent);
-  let text = script.textContent;
+  let text = "";
+  let t = 0;
   for (const { s, e } of imports) {
-    text =
-      text.slice(0, s) +
-      new URL(text.slice(s, e), window.location.href) +
-      text.slice(e);
+    text +=
+      script.textContent.slice(t, s) +
+      new URL(script.textContent.slice(s, e), window.location.href);
+    t = e;
   }
+  text += script.textContent.slice(t);
   text = parentProviderState
     ? `import * as context from "${parentProviderState.src}"; export * from "${parentProviderState.src}"; ${text}`
     : text;
