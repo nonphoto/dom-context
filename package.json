@@ -2,14 +2,15 @@
   "name": "chloranthy",
   "version": "0.1.0",
   "description": "DOM elements as context providers and consumers",
-  "main": "index.js",
+  "main": "./dist/chloranthy.js",
   "exports": {
-    "default": "./index.js"
+    "default": "./dist/chloranthy.js"
   },
   "keywords": [],
   "type": "module",
   "scripts": {
-    "test": "exit 0"
+    "test": "exit 0",
+    "build": "npx esbuild index.js --bundle --minify --target=es6 --outfile=dist/chloranthy.js"
   },
   "repository": {
     "type": "git",
@@ -20,5 +21,13 @@
   "bugs": {
     "url": "https://github.com/nonphoto/chloranthy/issues"
   },
-  "homepage": "https://github.com/nonphoto/chloranthy#readme"
+  "homepage": "https://github.com/nonphoto/chloranthy#readme",
+  "dependencies": {
+    "es-module-lexer": "^0.4.1",
+    "lodash.get": "^4.4.2",
+    "s-js": "^0.4.9"
+  },
+  "devDependencies": {
+    "esbuild": "^0.11.20"
+  }
 }
