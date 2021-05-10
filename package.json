@@ -1,6 +1,6 @@
 {
   "name": "chloranthy",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "DOM elements as context providers and consumers",
   "main": "index.js",
   "exports": {
