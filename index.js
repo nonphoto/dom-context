@@ -168,17 +168,25 @@ async function runInlineScript(script, parentProviderState) {
   const src = URL.createObjectURL(
     new Blob([text], { type: "application/javascript" })
   );
-  const module = await import(src);
-  return Stream.root(async (disposer) => {
-    const parentContext =
-      (parentProviderState && parentProviderState.context) || {};
-    const context = module.default(parentContext) || {};
-    return {
-      context: { ...parentContext, ...context },
-      src,
-      disposer,
-    };
-  });
+  try {
+    const module = await import(src);
+    return Stream.root(async (disposer) => {
+      try {
+        const parentContext =
+          (parentProviderState && parentProviderState.context) || {};
+        const context = module.default(parentContext) || {};
+        return {
+          context: { ...parentContext, ...context },
+          src,
+          disposer,
+        };
+      } catch (error) {
+        console.error(`Error in inline script: ${error}`);
+      }
+    });
+  } catch (error) {
+    console.error(`Unable to import inline script: ${error}`);
+  }
 }
 
 async function initOrUpdate(node, parentProviderState) {
@@ -203,10 +211,9 @@ async function initOrUpdate(node, parentProviderState) {
         (directive) => directive.name === attribute.name
       );
       if (directive) {
-        const data = directive.parser(
-          attribute.value,
-          parentProviderState.context
-        );
+        const parentContext =
+          (parentProviderState && parentProviderState.context) || {};
+        const data = directive.parser(attribute.value, parentContext);
         if (data) {
           Stream.root((dispose) => {
             directive.callback(node, data);
@@ -261,14 +268,10 @@ function start() {
   observer = new MutationObserver((mutations) => {
     const invalidNodes = [];
     for (const mutation of mutations) {
-      if (
-        mutation.target.nodeType === Node.TEXT_NODE &&
-        isProvider(mutation.target.parentElement)
-      ) {
-        invalidNodes.push(mutation.target.parentElement);
-      }
-      if (mutation.target.nodeType === Node.ELEMENT_NODE) {
-        if (mutation.type === "childList") {
+      if (mutation.type === "childList") {
+        if (isProvider(mutation.target)) {
+          invalidNodes.push(mutation.target);
+        } else {
           for (const node of mutation.removedNodes) {
             disposeAll(node);
           }
@@ -276,15 +279,19 @@ function start() {
             invalidNodes.push(mutation.nextSibling);
           }
         }
-        if (mutation.type === "attributes") {
-          if (
-            mutation.target.tagName === "SCRIPT" &&
-            mutation.attributeName === "context"
-          ) {
-            invalidNodes.push(mutation.target);
-          } else if (directiveNames.includes(mutation.attributeName)) {
-            invalidNodes.push(mutation.target);
-          }
+      } else if (mutation.type === "attributes") {
+        if (
+          mutation.target.tagName === "SCRIPT" &&
+          mutation.attributeName === "context"
+        ) {
+          invalidNodes.push(mutation.target);
+        } else if (directiveNames.includes(mutation.attributeName)) {
+          invalidNodes.push(mutation.target);
+        }
+      } else if (mutation.type === "characterData") {
+        if (isProvider(mutation.target.parentElement)) {
+          disposeAll(mutation.target.parentElement);
+          invalidNodes.push(mutation.target.parentElement);
         }
       }
     }
