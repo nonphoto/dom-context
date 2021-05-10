@@ -1,4 +1,4 @@
-import Stream from "https://cdn.skypack.dev/@nonphoto/s-js";
+import Stream from "https://cdn.skypack.dev/s-js";
 import * as moduleLexer from "https://cdn.skypack.dev/es-module-lexer";
 import get from "https://cdn.skypack.dev/lodash-es/get";
 
@@ -168,10 +168,13 @@ async function runInlineScript(script, parentProviderState) {
   const src = URL.createObjectURL(
     new Blob([text], { type: "application/javascript" })
   );
-  return Stream.asyncRoot(async (disposer) => {
-    const context = await import(src);
+  const module = await import(src);
+  return Stream.root(async (disposer) => {
+    const parentContext =
+      (parentProviderState && parentProviderState.context) || {};
+    const context = module.default(parentContext) || {};
     return {
-      context,
+      context: { ...parentContext, ...context },
       src,
       disposer,
     };

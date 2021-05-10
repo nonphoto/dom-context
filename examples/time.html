@@ -13,19 +13,23 @@
   </head>
   <body>
     <script context src>
-      export const [time, setTime] = Stream.create(0);
+      const [time, setTime] = Stream.create(0);
       (function tick(_t) {
         setTime(_t);
         requestAnimationFrame(tick);
       })(0);
+      export default () => ({ time });
     </script>
     <main>
       <script context src>
-        export const seconds = Stream(() => Math.floor(context.time() * 0.001));
-        export const hidden = Stream(() => seconds() % 3 == 0);
-        export const wiggle = Stream(
-          () => `translateY(${Math.sin(context.time() * 0.001) * 10}px)`
-        );
+        export default (context) => {
+          const seconds = Stream(() => Math.floor(context.time() * 0.001));
+          const hidden = Stream(() => seconds() % 3 == 0);
+          const wiggle = Stream(
+            () => `translateY(${Math.sin(context.time() * 0.001) * 10}px)`
+          );
+          return { seconds, hidden, wiggle };
+        };
       </script>
       <h1>
         Seconds:

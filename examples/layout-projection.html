@@ -44,10 +44,13 @@
       }
     </style>
     <script context src>
-      export const [toggle, setToggle] = Stream.create(false);
-      export const layoutTrigger = toggle;
-      export const click = () => {
-        setToggle(!Stream.sample(toggle));
+      export default () => {
+        const [toggle, setToggle] = Stream.create(false);
+        const layoutTrigger = toggle;
+        const click = () => {
+          setToggle(!Stream.sample(toggle));
+        };
+        return { toggle, click, layoutTrigger };
       };
     </script>
     <main bind-on="click: click" bind-attr="data-layout: toggle">
@@ -55,16 +58,16 @@
         import { animatedElement } from "./animation.js";
         import { hello } from "./other.js";
         hello();
-        export const { element, projection, layoutTrigger } = animatedElement(
-          context
-        );
+        export default (context) => {
+          return animatedElement(context);
+        };
       </script>
       <div id="parent" bind-ref="element">
         <script context src>
           import { animatedElement } from "./animation.js";
-          export const { element, projection, layoutTrigger } = animatedElement(
-            context
-          );
+          export default (context) => {
+            return animatedElement(context);
+          };
         </script>
         <div id="child" bind-ref="element"></div>
       </div>
