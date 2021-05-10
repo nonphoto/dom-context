@@ -1,6 +1,6 @@
-import Stream from "s-js";
-import * as moduleLexer from "es-module-lexer";
-import get from "lodash.get";
+import Stream from "https://cdn.skypack.dev/s-js";
+import * as moduleLexer from "https://cdn.skypack.dev/es-module-lexer";
+import get from "https://cdn.skypack.dev/lodash-es/get";
 
 Stream.create = (...args) => {
   const s = Stream.data(...args);
