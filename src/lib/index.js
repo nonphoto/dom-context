@@ -1,6 +1,9 @@
 import Stream from "https://cdn.skypack.dev/s-js";
 import * as moduleLexer from "https://cdn.skypack.dev/es-module-lexer";
 import get from "https://cdn.skypack.dev/lodash-es/get";
+import { createSignal } from "solid-js";
+
+const [value, setValue] = createSignal(0);
 
 Stream.create = (...args) => {
   const s = Stream.data(...args);

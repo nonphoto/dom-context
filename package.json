@@ -1,15 +1,16 @@
 {
   "name": "chloranthy",
   "version": "0.1.2",
-  "description": "DOM elements as context providers and consumers",
-  "main": "index.js",
-  "exports": {
-    "default": "./index.js"
-  },
-  "keywords": [],
+  "description": "",
   "type": "module",
+  "exports": "./src/lib/index.js",
+  "files": [
+    "src/lib"
+  ],
+  "keywords": [],
   "scripts": {
-    "test": "exit 0"
+    "dev": "astro dev",
+    "build": "astro build"
   },
   "repository": {
     "type": "git",
@@ -20,5 +21,11 @@
   "bugs": {
     "url": "https://github.com/nonphoto/chloranthy/issues"
   },
-  "homepage": "https://github.com/nonphoto/chloranthy#readme"
+  "homepage": "https://github.com/nonphoto/chloranthy#readme",
+  "devDependencies": {
+    "astro": "1.0.0-beta.31"
+  },
+  "dependencies": {
+    "solid-js": "1.4.2"
+  }
 }
