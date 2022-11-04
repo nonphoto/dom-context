@@ -1,9 +1,6 @@
 import Stream from "https://cdn.skypack.dev/s-js";
 import * as moduleLexer from "https://cdn.skypack.dev/es-module-lexer";
 import get from "https://cdn.skypack.dev/lodash-es/get";
-import { createSignal } from "solid-js";
-
-const [value, setValue] = createSignal(0);
 
 Stream.create = (...args) => {
   const s = Stream.data(...args);
@@ -11,81 +8,6 @@ Stream.create = (...args) => {
 };
 
 window.Stream = Stream;
-
-function textDirective(element, value) {
-  if (typeof value === "function") {
-    Stream(() => {
-      textDirective(element, value(element));
-    });
-  } else {
-    element.textContent = value;
-  }
-}
-
-function styleDirective(element, map) {
-  function set(key, value) {
-    if (typeof value === "function") {
-      Stream(() => {
-        set(key, value(element));
-      });
-    } else {
-      element.style[key] = value;
-    }
-  }
-  for (const [key, value] of map.entries()) {
-    set(key, value);
-  }
-}
-
-function attributeDirective(element, map) {
-  function set(key, value) {
-    if (typeof value === "function") {
-      Stream(() => {
-        set(key, value(element));
-      });
-    } else {
-      if (typeof value === "boolean") {
-        if (value) {
-          element.setAttribute(key, "");
-        } else {
-          element.removeAttribute(key);
-        }
-      } else {
-        element.setAttribute(key, value);
-      }
-    }
-  }
-  for (const [key, value] of map.entries()) {
-    set(key, value);
-  }
-}
-
-function onDirective(element, map) {
-  for (const [key, value] of map.entries()) {
-    element.addEventListener(key, value);
-    Stream.cleanup(() => {
-      element.removeEventListener(key, value);
-    });
-  }
-}
-
-function refDirective(element, vector) {
-  for (const value of vector) {
-    value(element);
-    Stream.cleanup(() => {
-      value(null);
-    });
-  }
-}
-
-function multirefDirective(element, vector) {
-  for (const value of vector) {
-    value([...(Stream.sample(value) || []), element]);
-    Stream.cleanup(() => {
-      value(Stream.sample(value).filter((item) => item !== element));
-    });
-  }
-}
 
 function scalarParser(key, context) {
   const value = get(context, key);
@@ -147,7 +69,7 @@ const directives = [
 
 const directiveNames = directives.map((directive) => directive.name);
 
-function isProvider(element) {
+function isComponent(element) {
   return (
     element.tagName === "SCRIPT" && element.getAttribute("context") !== null
   );
@@ -192,41 +114,30 @@ async function runInlineScript(script, parentProviderState) {
   }
 }
 
-async function initOrUpdate(node, parentProviderState) {
-  if (typeof parentProviderState === "undefined") {
-    let parent = node.parentElement;
+function initAttribute() {
+  const directive = directives.find(
+    (directive) => directive.name === attribute.name
+  );
+  if (directive != null) {
+    owner = directive(node, owner);
+  }
+}
+
+async function initElement(node, owner) {
+  if (owner == null) {
+    let parent = node;
     while (parent) {
-      if (isProvider(parent) && parent.__provider) {
-        parentProviderState = parent.__provider;
+      if (parent.__owner != null) {
+        owner = parent.__owner;
         break;
       }
       parent = parent.parentElement;
     }
   }
-  if (node.nodeType === Node.ELEMENT_NODE) {
-    dispose(node);
-    if (isProvider(node)) {
-      node.__provider = await runInlineScript(node, parentProviderState);
-      parentProviderState = node.__provider;
-    }
+  if (node?.nodeType === Node.ELEMENT_NODE) {
+    node.__dispose?.();
     for (const attribute of Array.from(node.attributes)) {
-      const directive = directives.find(
-        (directive) => directive.name === attribute.name
-      );
-      if (directive) {
-        const parentContext =
-          (parentProviderState && parentProviderState.context) || {};
-        const data = directive.parser(attribute.value, parentContext);
-        if (data) {
-          Stream.root((dispose) => {
-            directive.callback(node, data);
-            if (!node.__consumer) {
-              node.__consumer = {};
-            }
-            node.__consumer[attribute.name] = dispose;
-          });
-        }
-      }
+      initAttribute
     }
   }
   if (node.firstElementChild) {
@@ -243,26 +154,6 @@ async function initOrUpdate(node, parentProviderState) {
   }
 }
 
-function dispose(node) {
-  if (node.__provider) {
-    node.__provider.disposer();
-    delete node.__provider;
-  }
-  if (node.__consumer) {
-    for (const attributeName in node.__consumer) {
-      node.__consumer[attributeName]();
-    }
-    delete node.__consumer;
-  }
-}
-
-function disposeAll(node) {
-  dispose(node);
-  for (const child of Array.from(node.childNodes)) {
-    disposeAll(child);
-  }
-}
-
 let observer = null;
 
 function start() {
@@ -272,7 +163,7 @@ function start() {
     const invalidNodes = [];
     for (const mutation of mutations) {
       if (mutation.type === "childList") {
-        if (isProvider(mutation.target)) {
+        if (isComponent(mutation.target)) {
           invalidNodes.push(mutation.target);
         } else {
           for (const node of mutation.removedNodes) {
@@ -292,7 +183,7 @@ function start() {
           invalidNodes.push(mutation.target);
         }
       } else if (mutation.type === "characterData") {
-        if (isProvider(mutation.target.parentElement)) {
+        if (isComponent(mutation.target.parentElement)) {
           disposeAll(mutation.target.parentElement);
           invalidNodes.push(mutation.target.parentElement);
         }
